@@ -1,9 +1,11 @@
 
 
+#include <quan/stm32/millis.hpp>
 #include "serial_port.hpp"
 #include "interrupt_priority.hpp"
-//#include <quan/stm32/millis.hpp>
+#include "i2c.hpp"
 #include "led.hpp"
+
 
 namespace {
 
@@ -11,7 +13,6 @@ namespace {
    {
       SysTick_Config(SystemCoreClock / 1000);
       NVIC_SetPriority(SysTick_IRQn,15);
-      
    }
 
    void setup_serial_port()
@@ -24,24 +25,17 @@ namespace {
 
 extern "C" void setup()
 {
-
     setup_systick();
     setup_serial_port();
     led::setup();
-
+    i2c::init();
 }
 
-namespace {
-uint32_t systick_value  = 0;
-}
+volatile uint32_t quan::stm32::detail::systick_tick::current = 0U;
 
 extern "C" void Systick_Handler() __attribute__ ((interrupt ("IRQ")));
 extern "C" void SysTick_Handler()
 { 
-   ++systick_value;
+   ++quan::stm32::detail::systick_tick::current;
 }
 
-uint32_t millis()
-{
-   return systick_value;
-}

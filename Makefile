@@ -87,7 +87,7 @@ ODFLAGS = -d
 
 STARTUP = startup.s
 
-local_objects = main.o serial_port.o led.o setup.o spbrk.o system_init.o
+local_objects = main.o serial_port.o i2c.o led.o setup.o spbrk.o system_init.o
 
 objects  = $(local_objects) startup.o
 
