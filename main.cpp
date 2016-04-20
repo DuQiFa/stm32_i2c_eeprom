@@ -1,4 +1,9 @@
 
+
+/*
+   eeprom test using a 24LC0128 eeprom
+*/
+
 #include <quan/stm32/i2c_port.hpp>
 #include <quan/stm32/millis.hpp>
 #include <quan/conversion/itoa.hpp>
@@ -7,7 +12,6 @@
 #include "i2c.hpp"
 #include "led.hpp"
 #include <cstring>
-
 
 extern "C" void setup();
 
@@ -26,7 +30,7 @@ int main()
    setup();
    auto elapsed = quan::stm32::millis();
 
-   char data_out[] = {"HloWrld"};
+   char data_out[] = {"54322345"};
    i2c_write(5U,(uint8_t const*)data_out,8);
 
    write_delay();
@@ -48,14 +52,12 @@ int main()
       serial_port::write(buf);
       serial_port::write("\n");
    }
+// blink forever to check we havent crashed
    for (;;) {
       auto const now = quan::stm32::millis();
       if ( (now - elapsed) >= quan::time_<uint32_t>::ms{1000U}){
          elapsed = now;
          led::complement();
-        // quan::itoasc(elapsed,buffer, 10);
-        // serial_port::write(buffer);
-        // serial_port::write(" Hello World\n");
       }
    }
 
@@ -64,8 +66,8 @@ int main()
 
 namespace {
 
+   // 24LC128 eeprom address (low 3 bits dependent on pins)
    static constexpr uint8_t eeprom_addr = 0b10100000;
-
 
    struct timer_t{
       timer_t (quan::time_<uint32_t>::ms const t) 
@@ -154,6 +156,47 @@ bool i2c_read(uint16_t address, uint8_t* data, uint32_t len)
 
 bool i2c_write( uint16_t address, uint8_t const * data, uint32_t len)
 {
+
+#if 1
+   typedef quan::time_<uint32_t>::ms ms;
+   if (!test(i2c::is_busy,false,ms{200U},"i2c busy forever")){return false;}
+   i2c::set_start(true);
+
+   if (!test(i2c::get_sr1_sb,true,ms{200U},"couldnt get sb")){ return false;}
+   i2c::send_address(eeprom_addr );
+   
+   if (!test(i2c::get_sr1_addr,true,ms{200U},"couldnt get addr")){ return false;}
+   (void) i2c::get_sr2_msl();  // read sr2
+
+   if (!test(i2c::get_sr1_txe,true,ms{200U},"no txe 1")){return false;}
+   i2c::send_data( static_cast<uint8_t>((address && 0xFF00) >> 8));
+
+   if ( !test(i2c::get_sr1_txe,true,ms{200U},"no txe 2")){return false;}
+   i2c::send_data( static_cast<uint8_t>(address && 0xFF));
+
+  // if ( !test(i2c::get_sr1_txe,true,ms{200U},"no txe 3")){ return false;}
+
+    for ( uint32_t i = 0; i < len; ++i){
+      if (!test(i2c::get_sr1_txe,true,ms{200U},"no txe 3")){ return false;}
+//      while (! i2c::get_sr1_txe() ){
+//         if ( ! timer()){
+//            serial_port::write("tx reg never emptied 3\n");
+//            return false;
+//         }
+//      }
+//      timer.reset();
+      i2c::send_data(data[i]);
+   }
+   if (!test(i2c::get_sr1_btf,true,ms{200U},"no btf")){ return false;}
+
+   i2c::set_stop(true);
+
+   if(! test(i2c::get_stop,true,ms{200U},"couldnt set stop")){return false;}
+
+   serial_port::write("data written ok\n");
+   return true;
+   
+#else
    timer_t timer = quan::time_<uint32_t>::ms{200U};
    
    while (i2c::is_busy()){
@@ -237,6 +280,7 @@ bool i2c_write( uint16_t address, uint8_t const * data, uint32_t len)
    }
    serial_port::write("data written ok\n");
    return true;
+#endif
 }
 
 
