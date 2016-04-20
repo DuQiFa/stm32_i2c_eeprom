@@ -1,48 +1,46 @@
 
 
+
+
 /*
    eeprom test using a 24LC0128 eeprom
    page write time specified as 5 ms max
 */
 
-
-//#include <quan/stm32/i2c_port.hpp>
+#include <quan/stm32/i2c_port.hpp>
 #include <quan/stm32/millis.hpp>
-//#include <quan/conversion/itoa.hpp>
+#include <quan/conversion/itoa.hpp>
 
-//#include "serial_port.hpp"
-//#include "i2c.hpp"
+#include "serial_port.hpp"
+#include "i2c.hpp"
 #include "led.hpp"
-//#include <cstring>
+#include <cstring>
 
+extern "C" void setup_busy_wait();
 
+namespace {
 
-extern "C" void setup();
+   bool eeprom_write( uint16_t address, uint8_t const * data, uint32_t len);
+   bool eeprom_write_byte( uint16_t address, uint8_t data);
+   bool eeprom_read( uint16_t address, uint8_t * data, uint32_t len);
 
-bool busy_wait();
-
-/*
-bool eeprom_write( uint16_t address, uint8_t const * data, uint32_t len);
-bool eeprom_write_byte( uint16_t address, uint8_t data);
-bool eeprom_read( uint16_t address, uint8_t * data, uint32_t len);
-
-void write_delay()
-{
-   auto now = quan::stm32::millis();
-   while ( (quan::stm32::millis() - now) < quan::time_<uint32_t>::ms{6U}){;}
+   void write_delay()
+   {
+      auto now = quan::stm32::millis();
+      while ( (quan::stm32::millis() - now) < quan::time_<uint32_t>::ms{6U}){;}
+   }
 }
-*/
-int main()
-{
-
-
-   setup();
-
-   busy_wait();
 
 /*
-   
-   char data_out[] = {"Ho...ob"}; // the data to write
+   eeprom read write impl using busy waiting
+*/
+
+bool busy_wait()
+{
+   //setup_busy_wait();
+ //  auto elapsed = quan::stm32::millis();
+
+   char data_out[] = {"qwertyu"}; // the data to write
 
    if ( eeprom_write(5U,(uint8_t const*)data_out,8) ){
 
@@ -70,25 +68,16 @@ int main()
          serial_port::write(buf);
          serial_port::write("\n");
       }
+      return result;
 
    }else{
       serial_port::write("eeprom write failed\n");
-   }
-*/
-   // blink forever to check we havent crashed...
-   auto elapsed = quan::stm32::millis();
-   for (;;) {
-      auto const now = quan::stm32::millis();
-      if ( (now - elapsed) >= quan::time_<uint32_t>::ms{1000U}){
-         elapsed = now;
-         led::complement();
-      }
+      return false;
    }
 
-   return 0;
+   return true;
 }
 
-/*
 namespace {
 
    // 24LC128 eeprom address (low 3 bits dependent on pins)
@@ -166,84 +155,82 @@ namespace {
       };
       return eeprom_send_data(buf,2);
    }
-}
 
 
+/*
 read consists of sending "dummy" write commenad with just address, 
 followed by read command
+*/
+   bool eeprom_read(uint16_t address, uint8_t* data, uint32_t len)
+   {
+      typedef quan::time_<uint32_t>::ms ms;
 
-
-
-bool eeprom_read(uint16_t address, uint8_t* data, uint32_t len)
-{
-   typedef quan::time_<uint32_t>::ms ms;
-
-   if (!eeprom_common(address)){
-      return false;
-   }
-   // after common part wait for btf which signifies 
-   // can send "restart"
-   if ( event(i2c::get_sr1_btf,true,ms{200U})){
-      i2c::set_start(true);
-   }else{
-      return error("no btf");
-   }
-   // now send the read address
-   if (event(i2c::get_sr1_sb,true,ms{200U})){
-      i2c::send_address(eeprom_addr | 1);
-   }else{
-      return error("couldnt get sb 2");
-   }
-    
-   if (event(i2c::get_sr1_addr,true,ms{200U})){
-      (void) i2c::get_sr2_msl();
-   }else{
-      return error("no addr set 2");
-   }
-
-   uint32_t bytes_left = len;
-   i2c::enable_ack(true);
-
-   for ( uint32_t i = 0; i < len; ++i){
-      if ( event(i2c::get_sr1_rxne,true,ms{200U})){
-         if ( bytes_left == 1){
-            i2c::enable_ack(false);
-            i2c::set_stop(true);
-         }
-         data[i] = i2c::receive_data();
-         --bytes_left;
+      if (!eeprom_common(address)){
+         return false;
+      }
+      // after common part wait for btf which signifies 
+      // can send "restart"
+      if ( event(i2c::get_sr1_btf,true,ms{200U})){
+         i2c::set_start(true);
       }else{
-         return error("no rxne");
+         return error("no btf");
+      }
+      // now send the read address
+      if (event(i2c::get_sr1_sb,true,ms{200U})){
+         i2c::send_address(eeprom_addr | 1);
+      }else{
+         return error("couldnt get sb 2");
+      }
+       
+      if (event(i2c::get_sr1_addr,true,ms{200U})){
+         (void) i2c::get_sr2_msl();
+      }else{
+         return error("no addr set 2");
+      }
+
+      uint32_t bytes_left = len;
+      i2c::enable_ack(true);
+
+      for ( uint32_t i = 0; i < len; ++i){
+         if ( event(i2c::get_sr1_rxne,true,ms{200U})){
+            if ( bytes_left == 1){
+               i2c::enable_ack(false);
+               i2c::set_stop(true);
+            }
+            data[i] = i2c::receive_data();
+            --bytes_left;
+         }else{
+            return error("no rxne");
+         }
+      }
+      if(event(i2c::get_stop,true,ms{200U})){
+         serial_port::write("data read ok\n");
+         return true;
+      }else{
+         error("couldnt set stop");
+         return false;
       }
    }
-   if(event(i2c::get_stop,true,ms{200U})){
-      serial_port::write("data read ok\n");
-      return true;
-   }else{
-      error("couldnt set stop");
-      return false;
+
+   bool eeprom_write( uint16_t address, uint8_t const * data, uint32_t len)
+   {
+      typedef quan::time_<uint32_t>::ms ms;
+
+      if (!eeprom_common(address)){return false;}
+
+      if (!eeprom_send_data(data,len)){return false;}
+
+      if (event(i2c::get_sr1_btf,true,ms{200U})){
+         i2c::set_stop(true);
+      }else{
+         return error("no btf");
+      }
+      if(event(i2c::get_stop,true,ms{200U})){
+         serial_port::write("data written ok\n");
+         return true;
+      }else{
+         return error("data write failed");
+      }
    }
 }
-
-bool eeprom_write( uint16_t address, uint8_t const * data, uint32_t len)
-{
-   typedef quan::time_<uint32_t>::ms ms;
-
-   if (!eeprom_common(address)){return false;}
-
-   if (!eeprom_send_data(data,len)){return false;}
-
-   if (event(i2c::get_sr1_btf,true,ms{200U})){
-      i2c::set_stop(true);
-   }else{
-      return error("no btf");
-   }
-   if(event(i2c::get_stop,true,ms{200U})){
-      serial_port::write("data written ok\n");
-      return true;
-   }else{
-      return error("data write failed");
-   }
-}
-*/
 
