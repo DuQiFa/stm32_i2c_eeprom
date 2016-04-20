@@ -27,10 +27,10 @@ int main()
    setup();
    auto elapsed = quan::stm32::millis();
 
-   char data[] = {"G234567"};
-   i2c_write(5U,(uint8_t*)data,8);
+ //  char data[] = {"G234567"};
+ //  i2c_write(5U,(uint8_t*)data,8);
 
-   write_delay();
+ //  write_delay();
 
    char data_in[8] = {"-------"};
 
@@ -113,7 +113,6 @@ bool i2c_read(uint16_t address, uint8_t* data, uint32_t len)
    }
    timer.reset();
    
-
    i2c::send_address(eeprom_addr );
    while (!i2c::get_sr1_addr() ){
       if ( ! timer()){
@@ -146,10 +145,6 @@ bool i2c_read(uint16_t address, uint8_t* data, uint32_t len)
       }
    }
    timer.reset();
-
- 
-
-  
    i2c::send_data( static_cast<uint8_t>(address && 0xFF));
    timer.reset();
 
@@ -166,10 +161,6 @@ bool i2c_read(uint16_t address, uint8_t* data, uint32_t len)
    while (! i2c::get_sr1_btf() ){
       if ( ! timer()){
          serial_port::write("tx reg no btf \n");
-//         prf("tra",i2c::get_sr2_tra());
-//         prf("busy",i2c::is_busy());
-//         prf("msl",i2c::get_sr2_msl());
-//         prf("txe", i2c::get_sr1_txe());
          return false;
       }
    }
@@ -195,7 +186,8 @@ bool i2c_read(uint16_t address, uint8_t* data, uint32_t len)
 
    serial_port::write("got to rx data\n");
 
-   
+   uint32_t bytes_left = len;
+   i2c::enable_ack(true);
    for ( uint32_t i = 0; i < len; ++i){
       while (! i2c::get_sr1_rxne() ){
          if ( ! timer()){
@@ -204,21 +196,17 @@ bool i2c_read(uint16_t address, uint8_t* data, uint32_t len)
          }
       }
       timer.reset();
+      if ( bytes_left == 1){
+         i2c::enable_ack(false);
+         i2c::set_stop(true);
+      }
       
       data[i] =i2c::receive_data();
-      serial_port::write("read byte\n");
+      --bytes_left;
+     
+      //serial_port::write("read byte\n");
    }
    
-   while (!i2c::get_sr1_btf()){
-      if ( ! timer()){
-         serial_port::write("couldnt end transmission\n");
-         return false;
-      }
-   }
-   timer.reset();
-
-   i2c::set_stop(true);
-
    while (i2c::get_stop() ) {
       if ( ! timer()){
          serial_port::write("couldnt set stop\n");
