@@ -10,7 +10,7 @@ struct i2c{
 //   static bool master_byte_transmitting() ;
 //   static bool master_byte_transmitted() ;
    // the 2 byte receive nack mullarkey
-   static void set_nack2(bool b);
+   //static void set_nack2(bool b);
    static void enable_ack(bool b);
    static void set_start(bool b);
    static void set_stop(bool b);

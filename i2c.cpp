@@ -165,12 +165,14 @@ bool i2c::get_stop()
   return i2c_type::get()->cr1.bb_getbit<cr1_stop_bit>();
 }
 
+#if 0
 // see the f4 i2c ref man
 void i2c::set_nack2(bool b)
 {
    constexpr uint8_t cr1_pos_bit = 11;
    i2c_type::get()->cr1.bb_putbit<cr1_pos_bit>(b);
 }
+#endif
 
 void i2c::enable_ack(bool b)
 {
