@@ -95,21 +95,45 @@ namespace {
       }
       return true;
    }
+
+   void prf(const char* text, bool val)
+   {
+      serial_port::write(text);
+      serial_port::write(" = ");
+      serial_port::write(val?"true":"false");
+      serial_port::write("\n");
+   }
+
+   bool i2c_common(uint32_t address)
+   {
+      typedef quan::time_<uint32_t>::ms ms;
+      if (!test(i2c::is_busy,false,ms{200U},"i2c busy forever")){return false;}
+      i2c::set_start(true);
+
+      if (!test(i2c::get_sr1_sb,true,ms{200U},"couldnt get sb 1")){ return false;}
+      i2c::send_address(eeprom_addr );
+
+      if (!test(i2c::get_sr1_addr,true,ms{200U},"no addr set 1")){return false;}
+      (void) i2c::get_sr2_msl();  
+
+      if (!test(i2c::get_sr1_txe,true,ms{200U},"no txe 1")){return false;}
+      i2c::send_data( static_cast<uint8_t>((address && 0xFF00) >> 8));
+
+      if ( !test(i2c::get_sr1_txe,true,ms{200U},"no txe 2")){return false;}
+      i2c::send_data( static_cast<uint8_t>(address && 0xFF));
+   }
 }
 
-void prf(const char* text, bool val)
-{
-   serial_port::write(text);
-   serial_port::write(" = ");
-   serial_port::write(val?"true":"false");
-   serial_port::write("\n");
-}
+
 
 // address
 bool i2c_read(uint16_t address, uint8_t* data, uint32_t len)
 {
    typedef quan::time_<uint32_t>::ms ms;
-
+#if 1
+   if (!i2c_common(address)){return false;}
+#else
+   
    if (!test(i2c::is_busy,false,ms{200U},"i2c busy forever")){return false;}
    i2c::set_start(true);
 
@@ -124,8 +148,9 @@ bool i2c_read(uint16_t address, uint8_t* data, uint32_t len)
 
    if ( !test(i2c::get_sr1_txe,true,ms{200U},"no txe 2")){return false;}
    i2c::send_data( static_cast<uint8_t>(address && 0xFF));
+#endif
+// same as tx to here
 
-  // if ( !test(i2c::get_sr1_txe,true,ms{200U},"no txe 3")){ return false;}
    if ( !test(i2c::get_sr1_btf,true,ms{200U},"no btf")){return false;}
    i2c::set_start(true);
    
@@ -158,6 +183,9 @@ bool i2c_write( uint16_t address, uint8_t const * data, uint32_t len)
 {
    typedef quan::time_<uint32_t>::ms ms;
 
+#if 1
+  if (!i2c_common(address)){return false;}
+#else
    if (!test(i2c::is_busy,false,ms{200U},"i2c busy forever")){return false;}
    i2c::set_start(true);
 
@@ -172,7 +200,8 @@ bool i2c_write( uint16_t address, uint8_t const * data, uint32_t len)
 
    if ( !test(i2c::get_sr1_txe,true,ms{200U},"no txe 2")){return false;}
    i2c::send_data( static_cast<uint8_t>(address && 0xFF));
-
+#endif
+// same as rx to here
     for ( uint32_t i = 0; i < len; ++i){
       if (!test(i2c::get_sr1_txe,true,ms{200U},"no txe 3")){ return false;}
       i2c::send_data(data[i]);
