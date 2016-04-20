@@ -81,6 +81,19 @@ namespace {
       quan::time_<uint32_t>::ms m_start;  
       quan::time_<uint32_t>::ms const m_timeout;
    };
+
+   bool test(bool (*pf)(void), bool wanted_result, quan::time_<uint32_t>::ms timeout, const char* text)
+   {
+      quan::time_<uint32_t>::ms start = quan::stm32::millis();
+      while (pf() != wanted_result){
+         if ((quan::stm32::millis() - start) >= timeout){
+            serial_port::write(text);
+            serial_port::write("\n");
+            return false;
+         }
+      }
+      return true;
+   }
 }
 
 void prf(const char* text, bool val)
@@ -94,6 +107,52 @@ void prf(const char* text, bool val)
 // address
 bool i2c_read(uint16_t address, uint8_t* data, uint32_t len)
 {
+#if 1
+   typedef quan::time_<uint32_t>::ms ms;
+
+   if (!test(i2c::is_busy,false,ms{200U},"i2c busy forever")){return false;}
+   i2c::set_start(true);
+
+   if (!test(i2c::get_sr1_sb,true,ms{200U},"couldnt get sb 1")){ return false;}
+   i2c::send_address(eeprom_addr );
+
+   if (!test(i2c::get_sr1_addr,true,ms{200U},"no addr set 1")){return false;}
+   (void) i2c::get_sr2_msl();
+
+   if (!test(i2c::get_sr1_txe,true,ms{200U},"no txe 1")){return false;}
+   i2c::send_data( static_cast<uint8_t>((address && 0xFF00) >> 8));
+
+   if ( !test(i2c::get_sr1_txe,true,ms{200U},"no txe 2")){return false;}
+   i2c::send_data( static_cast<uint8_t>(address && 0xFF));
+
+   if ( !test(i2c::get_sr1_txe,true,ms{200U},"no txe 3")){ return false;}
+   if ( !test(i2c::get_sr1_btf,true,ms{200U},"no btf")){return false;}
+   i2c::set_start(true);
+   
+   if ( !test(i2c::get_sr1_sb,true,ms{200U},"couldnt get sb 2")){return false;}
+   i2c::send_address(eeprom_addr | 1 );
+
+   if ( !test(i2c::get_sr1_addr,true,ms{200U},"no addr set 2")){return false;}
+   (void) i2c::get_sr2_msl();
+
+   uint32_t bytes_left = len;
+   i2c::enable_ack(true);
+
+   for ( uint32_t i = 0; i < len; ++i){
+      if ( !test(i2c::get_sr1_rxne,true,ms{200U},"no rxne")){return false;}
+      if ( bytes_left == 1){
+         i2c::enable_ack(false);
+         i2c::set_stop(true);
+      }
+      data[i] = i2c::receive_data();
+      --bytes_left;
+   }
+   if(! test(i2c::get_stop,true,ms{200U},"couldnt set stop")){return false;}
+   serial_port::write("data read ok\n");
+   return true;
+   
+#else
+
    timer_t timer = quan::time_<uint32_t>::ms{200U};
 
    while (i2c::is_busy()){
@@ -144,10 +203,8 @@ bool i2c_read(uint16_t address, uint8_t* data, uint32_t len)
          return false;
       }
    }
-   timer.reset();
    i2c::send_data( static_cast<uint8_t>(address && 0xFF));
    timer.reset();
-
     while (! i2c::get_sr1_txe() ){
       if ( ! timer()){
          serial_port::write("tx reg never emptied 2\n");
@@ -216,8 +273,9 @@ bool i2c_read(uint16_t address, uint8_t* data, uint32_t len)
    serial_port::write("data read ok\n");
    return true;
 
-  
+  #endif
 }
+
 
 bool i2c_write( uint16_t address, uint8_t const * data, uint32_t len)
 {
