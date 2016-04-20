@@ -30,7 +30,7 @@ int main()
    setup();
    auto elapsed = quan::stm32::millis();
 
-   char data_out[] = {"54322345"};
+   char data_out[] = {"12123487"};
    i2c_write(5U,(uint8_t const*)data_out,8);
 
    write_delay();
@@ -125,7 +125,7 @@ bool i2c_read(uint16_t address, uint8_t* data, uint32_t len)
    if ( !test(i2c::get_sr1_txe,true,ms{200U},"no txe 2")){return false;}
    i2c::send_data( static_cast<uint8_t>(address && 0xFF));
 
-   if ( !test(i2c::get_sr1_txe,true,ms{200U},"no txe 3")){ return false;}
+  // if ( !test(i2c::get_sr1_txe,true,ms{200U},"no txe 3")){ return false;}
    if ( !test(i2c::get_sr1_btf,true,ms{200U},"no btf")){return false;}
    i2c::set_start(true);
    
@@ -156,9 +156,8 @@ bool i2c_read(uint16_t address, uint8_t* data, uint32_t len)
 
 bool i2c_write( uint16_t address, uint8_t const * data, uint32_t len)
 {
-
-#if 1
    typedef quan::time_<uint32_t>::ms ms;
+
    if (!test(i2c::is_busy,false,ms{200U},"i2c busy forever")){return false;}
    i2c::set_start(true);
 
@@ -174,17 +173,8 @@ bool i2c_write( uint16_t address, uint8_t const * data, uint32_t len)
    if ( !test(i2c::get_sr1_txe,true,ms{200U},"no txe 2")){return false;}
    i2c::send_data( static_cast<uint8_t>(address && 0xFF));
 
-  // if ( !test(i2c::get_sr1_txe,true,ms{200U},"no txe 3")){ return false;}
-
     for ( uint32_t i = 0; i < len; ++i){
       if (!test(i2c::get_sr1_txe,true,ms{200U},"no txe 3")){ return false;}
-//      while (! i2c::get_sr1_txe() ){
-//         if ( ! timer()){
-//            serial_port::write("tx reg never emptied 3\n");
-//            return false;
-//         }
-//      }
-//      timer.reset();
       i2c::send_data(data[i]);
    }
    if (!test(i2c::get_sr1_btf,true,ms{200U},"no btf")){ return false;}
@@ -195,92 +185,6 @@ bool i2c_write( uint16_t address, uint8_t const * data, uint32_t len)
 
    serial_port::write("data written ok\n");
    return true;
-   
-#else
-   timer_t timer = quan::time_<uint32_t>::ms{200U};
-   
-   while (i2c::is_busy()){
-      if ( ! timer()){
-         serial_port::write("i2c busy forever\n");
-         return false;
-      }
-   }
-   timer.reset();
-
-   i2c::set_start(true);
-   while (!i2c::get_sr1_sb() ) {  // read sb
-      if ( ! timer()){
-         serial_port::write("couldnt get sb\n");
-         return false;
-      }
-   }
-   timer.reset();
-    
-   i2c::send_address(eeprom_addr);  // write dr
-   while (!i2c::get_sr1_addr() ){  // read sr1
-      if ( ! timer()){
-         serial_port::write("couldnt sel master mode tx\n");
-         return false;
-      }
-   }
-   (void) i2c::get_sr2_msl();  // read sr2
-   timer.reset();
-
-   while (! i2c::get_sr1_txe() ){
-      if ( ! timer()){
-         serial_port::write("tx reg never emptied 1\n");
-         prf("tra",i2c::get_sr2_tra());
-         prf("busy",i2c::is_busy());
-         prf("msl",i2c::get_sr2_msl());
-         prf("txe", i2c::get_sr1_txe());
-         return false;
-      }
-   }
-   timer.reset();
-   i2c::send_data( static_cast<uint8_t>((address && 0xFF00) >> 8));
-   while (! i2c::get_sr1_txe() ){
-      if ( ! timer()){
-         serial_port::write("tx reg never emptied 2\n");
-         prf("tra",i2c::get_sr2_tra());
-         prf("busy",i2c::is_busy());
-         prf("msl",i2c::get_sr2_msl());
-         prf("txe", i2c::get_sr1_txe());
-         return false;
-      }
-   }
-   timer.reset();
-   i2c::send_data( static_cast<uint8_t>(address && 0xFF));
-   timer.reset();
-   for ( uint32_t i = 0; i < len; ++i){
-      while (! i2c::get_sr1_txe() ){
-         if ( ! timer()){
-            serial_port::write("tx reg never emptied 3\n");
-            return false;
-         }
-      }
-      timer.reset();
-      i2c::send_data(data[i]);
-   }
-
-   while (!i2c::get_sr1_btf()){
-      if ( ! timer()){
-         serial_port::write("couldnt end transmission\n");
-         return false;
-      }
-   }
-   timer.reset();
-
-   i2c::set_stop(true);
-
-   while (i2c::get_stop() ) {
-      if ( ! timer()){
-         serial_port::write("couldnt set stop\n");
-         return false;
-      }
-   }
-   serial_port::write("data written ok\n");
-   return true;
-#endif
 }
 
 
