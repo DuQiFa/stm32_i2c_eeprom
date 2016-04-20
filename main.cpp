@@ -11,16 +11,44 @@
 
 extern "C" void setup();
 
-bool i2c_write( uint16_t address, uint8_t * data, uint32_t len);
+bool i2c_write( uint16_t address, uint8_t const * data, uint32_t len);
+bool i2c_write_byte( uint16_t address, uint8_t data);
+bool i2c_read( uint16_t address, uint8_t * data, uint32_t len);
+
+void write_delay()
+{
+ auto now = quan::stm32::millis();
+
+   while ( (quan::stm32::millis() - now) < quan::time_<uint32_t>::ms{100U}){;}
+}
 
 int main()
 {
    setup();
    auto elapsed = quan::stm32::millis();
 
-   char data[] = {"1234567"};
+   char data[] = {"G234567"};
    i2c_write(5U,(uint8_t*)data,8);
 
+   write_delay();
+
+   char data_in[8] = {"-------"};
+
+   bool result = i2c_read(5U,(uint8_t*)data_in,8);
+
+   serial_port::write("read ");
+   serial_port::write( result ? "succeeded\n" : "failed\n");
+   serial_port::write("got ");
+   
+   serial_port::write(data_in,8);
+   serial_port::write("\n");
+
+   for ( uint8_t i = 0; i < 8; ++i){
+      char buf[20];
+      quan::itoasc(static_cast<uint32_t>(data_in[i]),buf,10);
+      serial_port::write(buf);
+      serial_port::write("\n");
+   }
    for (;;) {
       auto const now = quan::stm32::millis();
       if ( (now - elapsed) >= quan::time_<uint32_t>::ms{1000U}){
@@ -63,7 +91,147 @@ void prf(const char* text, bool val)
    serial_port::write("\n");
 }
 
-bool i2c_write( uint16_t address, uint8_t * data, uint32_t len)
+// address
+bool i2c_read(uint16_t address, uint8_t* data, uint32_t len)
+{
+   timer_t timer = quan::time_<uint32_t>::ms{200U};
+
+   while (i2c::is_busy()){
+      if ( ! timer()){
+         serial_port::write("i2c busy forever\n");
+         return false;
+      }
+   }
+
+   timer.reset();
+   i2c::set_start(true);
+   while (!i2c::get_sr1_sb() ) {
+      if ( ! timer()){
+         serial_port::write("couldnt get sb\n");
+         return false;
+      }
+   }
+   timer.reset();
+   
+
+   i2c::send_address(eeprom_addr );
+   while (!i2c::get_sr1_addr() ){
+      if ( ! timer()){
+         serial_port::write("couldnt sel master mode tx\n");
+         return false;
+      }
+   }
+   (void) i2c::get_sr2_msl();
+// eeprom address to read
+   while (! i2c::get_sr1_txe() ){
+      if ( ! timer()){
+         serial_port::write("tx reg never emptied 1\n");
+         prf("tra",i2c::get_sr2_tra());
+         prf("busy",i2c::is_busy());
+         prf("msl",i2c::get_sr2_msl());
+         prf("txe", i2c::get_sr1_txe());
+         return false;
+      }
+   }
+   timer.reset();
+   i2c::send_data( static_cast<uint8_t>((address && 0xFF00) >> 8));
+   while (! i2c::get_sr1_txe() ){
+      if ( ! timer()){
+         serial_port::write("tx reg never emptied 2\n");
+         prf("tra",i2c::get_sr2_tra());
+         prf("busy",i2c::is_busy());
+         prf("msl",i2c::get_sr2_msl());
+         prf("txe", i2c::get_sr1_txe());
+         return false;
+      }
+   }
+   timer.reset();
+
+ 
+
+  
+   i2c::send_data( static_cast<uint8_t>(address && 0xFF));
+   timer.reset();
+
+    while (! i2c::get_sr1_txe() ){
+      if ( ! timer()){
+         serial_port::write("tx reg never emptied 2\n");
+         prf("tra",i2c::get_sr2_tra());
+         prf("busy",i2c::is_busy());
+         prf("msl",i2c::get_sr2_msl());
+         prf("txe", i2c::get_sr1_txe());
+         return false;
+      }
+   }
+   while (! i2c::get_sr1_btf() ){
+      if ( ! timer()){
+         serial_port::write("tx reg no btf \n");
+//         prf("tra",i2c::get_sr2_tra());
+//         prf("busy",i2c::is_busy());
+//         prf("msl",i2c::get_sr2_msl());
+//         prf("txe", i2c::get_sr1_txe());
+         return false;
+      }
+   }
+   i2c::set_start(true);
+// wait for start
+   while (!i2c::get_sr1_sb() ) {
+      if ( ! timer()){
+         serial_port::write("couldnt get sb\n");
+         return false;
+      }
+   }
+   timer.reset();
+   
+
+   i2c::send_address(eeprom_addr | 1 );
+   while (!i2c::get_sr1_addr() ){
+      if ( ! timer()){
+         serial_port::write("couldnt sel master mode tx\n");
+         return false;
+      }
+   }
+   (void) i2c::get_sr2_msl();
+
+   serial_port::write("got to rx data\n");
+
+   
+   for ( uint32_t i = 0; i < len; ++i){
+      while (! i2c::get_sr1_rxne() ){
+         if ( ! timer()){
+            serial_port::write("rx reg never empty\n");
+            return false;
+         }
+      }
+      timer.reset();
+      
+      data[i] =i2c::receive_data();
+      serial_port::write("read byte\n");
+   }
+   
+   while (!i2c::get_sr1_btf()){
+      if ( ! timer()){
+         serial_port::write("couldnt end transmission\n");
+         return false;
+      }
+   }
+   timer.reset();
+
+   i2c::set_stop(true);
+
+   while (i2c::get_stop() ) {
+      if ( ! timer()){
+         serial_port::write("couldnt set stop\n");
+         return false;
+      }
+   }
+   serial_port::write("data read ok\n");
+   return true;
+
+  
+}
+
+bool i2c_write( uint16_t address, uint8_t const * data, uint32_t len)
 {
    timer_t timer = quan::time_<uint32_t>::ms{200U};
    
@@ -76,7 +244,7 @@ bool i2c_write( uint16_t address, uint8_t * data, uint32_t len)
    timer.reset();
 
    i2c::set_start(true);
-   while (!i2c::get_sr1_sb() ) {
+   while (!i2c::get_sr1_sb() ) {  // read sb
       if ( ! timer()){
          serial_port::write("couldnt get sb\n");
          return false;
@@ -84,14 +252,14 @@ bool i2c_write( uint16_t address, uint8_t * data, uint32_t len)
    }
    timer.reset();
     
-   i2c::send_address(eeprom_addr);
-   while (!i2c::get_sr1_addr() ){
+   i2c::send_address(eeprom_addr);  // write dr
+   while (!i2c::get_sr1_addr() ){  // read sr1
       if ( ! timer()){
          serial_port::write("couldnt sel master mode tx\n");
          return false;
       }
    }
-   (void) i2c::get_sr2_msl();
+   (void) i2c::get_sr2_msl();  // read sr2
    timer.reset();
 
    while (! i2c::get_sr1_txe() ){
@@ -149,6 +317,7 @@ bool i2c_write( uint16_t address, uint8_t * data, uint32_t len)
    serial_port::write("data written ok\n");
    return true;
 }
+
 
 
 

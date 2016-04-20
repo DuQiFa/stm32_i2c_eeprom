@@ -84,7 +84,7 @@ void i2c::init()
    bool i2c::get_sr2_tra() {constexpr uint8_t sr2_tra = 2;return i2c_type::get()->sr2.bb_getbit<sr2_tra>();}
    bool i2c::get_sr1_addr() {constexpr uint8_t sr1_addr = 1;return i2c_type::get()->sr1.bb_getbit<sr1_addr>();}
    bool i2c::get_sr1_sb() {constexpr uint8_t sr1_sb = 0;return i2c_type::get()->sr1.bb_getbit<sr1_sb>();}
-
+   bool i2c::get_sr1_rxne() {constexpr uint8_t sr1_rxne = 6;return i2c_type::get()->sr1.bb_getbit<sr1_rxne>();}
 // 
 //bool i2c::master_mode_selected()
 //{

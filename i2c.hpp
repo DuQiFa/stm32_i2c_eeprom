@@ -22,6 +22,7 @@ struct i2c{
    static bool get_sr1_addr() ;
    static bool get_sr1_sb();
 
+   static bool get_sr1_rxne();
    
    static bool get_stop();
    static void send_address(uint8_t address);
