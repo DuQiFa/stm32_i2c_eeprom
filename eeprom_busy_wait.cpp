@@ -1,27 +1,25 @@
 
 
-
-
 /*
    eeprom test using a 24LC0128 eeprom
    page write time specified as 5 ms max
 */
 
-#include <quan/stm32/i2c_port.hpp>
+//#include <quan/stm32/i2c_port.hpp>
 #include <quan/stm32/millis.hpp>
 #include <quan/conversion/itoa.hpp>
 
 #include "serial_port.hpp"
 #include "i2c.hpp"
-#include "led.hpp"
-#include <cstring>
 
-extern "C" void setup_busy_wait();
+
+/*
+   eeprom read write impl using busy waiting
+*/
 
 namespace {
 
    bool eeprom_write( uint16_t address, uint8_t const * data, uint32_t len);
-   bool eeprom_write_byte( uint16_t address, uint8_t data);
    bool eeprom_read( uint16_t address, uint8_t * data, uint32_t len);
 
    void write_delay()
@@ -29,16 +27,16 @@ namespace {
       auto now = quan::stm32::millis();
       while ( (quan::stm32::millis() - now) < quan::time_<uint32_t>::ms{6U}){;}
    }
+
+   void setup_busy_wait()
+   {
+      i2c::init();
+   }
 }
 
-/*
-   eeprom read write impl using busy waiting
-*/
-
-bool busy_wait()
+bool eeprom_busy_wait_test()
 {
-   //setup_busy_wait();
- //  auto elapsed = quan::stm32::millis();
+   setup_busy_wait();
 
    char data_out[] = {"qwertyu"}; // the data to write
 
@@ -158,7 +156,7 @@ namespace {
 
 
 /*
-read consists of sending "dummy" write commenad with just address, 
+read consists of sending "dummy" write command with just address, 
 followed by read command
 */
    bool eeprom_read(uint16_t address, uint8_t* data, uint32_t len)
@@ -189,12 +187,12 @@ followed by read command
       }
 
       uint32_t bytes_left = len;
-      i2c::enable_ack(true);
+      i2c::set_ack(true);
 
       for ( uint32_t i = 0; i < len; ++i){
          if ( event(i2c::get_sr1_rxne,true,ms{200U})){
             if ( bytes_left == 1){
-               i2c::enable_ack(false);
+               i2c::set_ack(false);
                i2c::set_stop(true);
             }
             data[i] = i2c::receive_data();

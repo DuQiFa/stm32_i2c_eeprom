@@ -5,16 +5,16 @@ struct i2c{
 
    static void init();
    static bool is_busy() ;
-//   static bool master_mode_selected() ;
-//   static bool master_transmitter_selected() ;
-//   static bool master_byte_transmitting() ;
-//   static bool master_byte_transmitted() ;
-   // the 2 byte receive nack mullarkey
-   //static void set_nack2(bool b);
-   static void enable_ack(bool b);
-   static void set_start(bool b);
-   static void set_stop(bool b);
 
+   static void set_ack(bool b);
+   static void set_start(bool b);
+   static void enable_event_interrupts(bool b);
+   static void enable_buffer_interrupts(bool b);
+   static void enable_dma_bit(bool b);
+   static void enable_dma_stream(bool b);
+   static void set_dma_tx_buffer(uint8_t const* data, uint16_t numbytes);
+   static void clear_dma_stream_flags();
+   static void set_stop(bool b);
    static bool get_sr2_msl();
    static bool get_sr1_btf() ;
    static bool get_sr1_txe() ;
@@ -29,6 +29,11 @@ struct i2c{
    static void send_data(uint8_t data);
    static uint8_t receive_data();
    static const char* get_error_string();
+
+   private:
+      i2c() = delete;
+      i2c(i2c const & ) = delete;
+      i2c& operator = (i2c&) = delete;
 
 };
 

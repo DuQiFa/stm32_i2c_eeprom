@@ -57,10 +57,6 @@ SIZ     = $(TOOLCHAIN_PREFIX)bin/arm-none-eabi-size
 
 STM32F4_LINKER_SCRIPT = stm32f4.ld
 
-#DEFINES = QUAN_STM32F4 STM32F40_41xxx HSE_VALUE=8000000 
-
-#DEFINE_ARGS = $(patsubst %,-D%,$(DEFINES))
-
 INCLUDES = -I$(STM32F4_INCLUDE_PATH)CMSIS/Include/ \
 -I$(STM32F4_INCLUDE_PATH)CMSIS/Device/ST/STM32F4xx/Include/ \
 -I$(STM32F4_INCLUDE_PATH)STM32F4xx_StdPeriph_Driver/inc/ \
@@ -87,7 +83,7 @@ ODFLAGS = -d
 
 STARTUP = startup.s
 
-local_objects = main.o busy_wait.o serial_port.o i2c.o led.o setup.o spbrk.o system_init.o
+local_objects = main.o eeprom_busy_wait.o serial_port.o eeprom_irq.o i2c.o led.o setup.o spbrk.o system_init.o
 
 objects  = $(local_objects) startup.o
 
@@ -107,7 +103,6 @@ test: main.elf
 main.elf : $(objects) 
 	@ echo "..linking"
 	$(LD)   $(LFLAGS)  -o main.elf $(objects) 
-
 
 $(local_objects): %.o : %.cpp
 	$(CC) $(CFLAGS) $< -o $@
