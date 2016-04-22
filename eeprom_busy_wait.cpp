@@ -28,15 +28,11 @@ namespace {
       while ( (quan::stm32::millis() - now) < quan::time_<uint32_t>::ms{6U}){;}
    }
 
-   void setup_busy_wait()
-   {
-      //i2c::init();
-   }
+
 }
 
 bool eeprom_busy_wait_test()
 {
-   setup_busy_wait();
 
   // char data_out[] = {"qwertyu"}; // the data to write
 
