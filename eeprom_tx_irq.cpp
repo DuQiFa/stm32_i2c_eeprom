@@ -25,16 +25,6 @@
 
 namespace{
 
-   void setup_eeprom_irq()
-   {
-      i2c::init();
-
-      typedef quan::stm32::i2c3  i2c_type;
-
-      NVIC_EnableIRQ(quan::stm32::i2c::detail::get_event_irq_number<i2c_type>::value);
-      NVIC_EnableIRQ(quan::stm32::i2c::detail::get_error_irq_number<i2c_type>::value);
-   }
-
    void default_i2c3_dma_handler();
 
    void i2c_set_default_handlers();
@@ -55,23 +45,23 @@ namespace{
    volatile bool bus_taken_token = false;
 
    // if bus not active then acquire some token representing the bus
-   bool get_i2c_bus()
-   {
-      if (bus_taken_token ){
-         return false;
-      }
-      if ( i2c::is_busy()){  // shouldnt get here
-         panic("i2c bus busy but bus token is free");
-      }
-      return bus_taken_token = true;
-   }
-
-   bool release_i2c_bus()
-   {
-      // check for bus not taken --> panic
-      // check for bus busy --> panic 
-      return bus_taken_token = false;
-   }
+//   bool get_i2c_bus()
+//   {
+//      if (bus_taken_token ){
+//         return false;
+//      }
+//      if ( i2c::is_busy()){  // shouldnt get here
+//         panic("i2c bus busy but bus token is free");
+//      }
+//      return bus_taken_token = true;
+//   }
+//
+//   bool release_i2c_bus()
+//   {
+//      // check for bus not taken --> panic
+//      // check for bus busy --> panic 
+//      return bus_taken_token = false;
+//   }
 
    // do an eeprom write
    // should work in irqs and dma only afap
@@ -83,18 +73,17 @@ namespace{
       // wait till busy() return false
       static bool setup(uint8_t device_address,uint16_t data_address, uint8_t const* data, uint16_t len)
       {
-         setup_eeprom_irq();
          // check eeprom address < max
          // check data ptr not null
          // check len not 0
          // etc
-         if (get_i2c_bus()){
+         if (i2c::get_bus()){
             m_p_data = data;
             m_data_length = len;
             m_data_address[0] = static_cast<uint8_t>((data_address & 0xFF00) >> 8U);
             m_data_address[1] = static_cast<uint8_t>(data_address & 0xFF);
             m_device_address = device_address;
-            m_active_flag = true;
+           
             setup_dma();
             i2c_set_error_handler(error_irq_handler);
             i2c_set_event_handler(sb1_irq_handler);
@@ -111,7 +100,7 @@ namespace{
       }
       // this alg may not be active but bus may still busy
       // so check for i2c_is_busy() too
-      static bool active(){ return m_active_flag ;}
+   //   static bool active(){ return m_active_flag ;}
 
   private:
 
@@ -171,7 +160,8 @@ namespace{
       {
          i2c::enable_event_interrupts(false);
          i2c::set_stop(true);
-         teardown();
+         i2c_set_default_handlers();
+         i2c::release_bus();
       }
 
       static void error_irq_handler()
@@ -212,25 +202,25 @@ namespace{
 //         DMA1_Stream4->CR |= (1 << 0); // (EN)  enable DMA stream
       }
       
-      static void teardown()
-      {
-         //i2c_set_default_handlers();
-         m_active_flag = false;
-         release_i2c_bus();
-      }
+//      static void teardown()
+//      {
+//         //i2c_set_default_handlers();
+//         m_active_flag = false;
+//         
+//      }
 
       static uint8_t const * m_p_data;
       static uint16_t m_data_length;
       static uint8_t  m_data_address[2]; // could do for dma in dma avail memmory
       static uint8_t  m_device_address;
-      static volatile bool   m_active_flag;
+     // static volatile bool   m_active_flag;
    };
 
    uint8_t const *   i2c_eeprom_writer::m_p_data = nullptr;
    uint16_t          i2c_eeprom_writer::m_data_length = 0U;
    uint8_t           i2c_eeprom_writer::m_data_address[] = {0U,0U};
    uint8_t           i2c_eeprom_writer::m_device_address = 0U;
-   volatile bool     i2c_eeprom_writer::m_active_flag = false;
+  // volatile bool     i2c_eeprom_writer::m_active_flag = false;
 
 } // ~namespace
 
@@ -245,9 +235,9 @@ bool eeprom_tx_irq_test()
 
     auto now = quan::stm32::millis();
     typedef decltype(now) ms;
-    while(i2c_eeprom_writer::active() && ((quan::stm32::millis() - now) < ms{500U})){;}
+    while(i2c::is_busy() && ((quan::stm32::millis() - now) < ms{500U})){;}
  
-    if (i2c_eeprom_writer::active()){
+    if (i2c::is_busy()){
          panic("looks like irq write hung");
 
          uint32_t const dma_flags = DMA1->HISR & 0x3F;
