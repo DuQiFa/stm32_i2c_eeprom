@@ -96,6 +96,10 @@ void i2c::init()
          DMA1_Stream4->CR &= ~(1U << 0U); // (EN)
       }
    }
+   void i2c::clear_dma_stream_tcif()
+   {
+       DMA1->HIFCR |= (1 << 5) ; // (TCIF)
+   }
 
    uint16_t i2c::get_sr1()
    {
@@ -115,7 +119,7 @@ void i2c::init()
    void i2c::clear_dma_stream_flags()
    {
        DMA1->HIFCR |= (0b111101 << 0U) ; // clear flags for Dma1 Stream 4
-       DMA1->HIFCR &= ~(0b111101 << 0U) ; // clear flags for Dma1 Stream 4
+     //  DMA1->HIFCR &= ~(0b111101 << 0U) ; // clear flags for Dma1 Stream 4
    }
 // 
 //bool i2c::master_mode_selected()

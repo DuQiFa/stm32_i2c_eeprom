@@ -45,9 +45,10 @@ bool eeprom_busy_wait_test()
   //    write_delay();  // wait for eeprom write to complete
 
       // put some data here to check it is being overwritten
-      char data_in[8] = {"-------"};
+      constexpr uint8_t num = 12;
+      char data_in[num] = {"-------"};
 
-      bool result = eeprom_read(5U,(uint8_t*)data_in,8);
+      bool result = eeprom_read(5U,(uint8_t*)data_in,num);
 
       serial_port::write("read ");
       serial_port::write( result ? "succeeded\n" : "failed\n");
@@ -56,11 +57,11 @@ bool eeprom_busy_wait_test()
 
       serial_port::write("got ");
       
-      serial_port::write(data_in,8);
+      serial_port::write(data_in,num);
       serial_port::write("\n");
 
       // may not be ascii ...
-      for ( uint8_t i = 0; i < 8; ++i){
+      for ( uint8_t i = 0; i < num; ++i){
          char buf[20];
          quan::itoasc(static_cast<uint32_t>(data_in[i]),buf,10);
          serial_port::write(buf);

@@ -45,7 +45,7 @@ namespace{
       serial_port::put('\n');
    }
 
-   bool bus_taken_token = false;
+   volatile bool bus_taken_token = false;
 
    // if bus not active then acquire some token representing the bus
    bool get_i2c_bus()
@@ -84,7 +84,7 @@ namespace{
          if (get_i2c_bus()){
             m_p_data = data;
             m_data_length = len;
-            m_data_address[0] = static_cast<uint8_t>((data_address & 0xFF00) >> 8);
+            m_data_address[0] = static_cast<uint8_t>((data_address & 0xFF00) >> 8U);
             m_data_address[1] = static_cast<uint8_t>(data_address & 0xFF);
             m_device_address = device_address;
             m_active_flag = true;
@@ -94,6 +94,7 @@ namespace{
             //serial_port::write("eeprom irq was setup\n");
             // start the process..
             i2c::enable_event_interrupts(true);
+            i2c::set_ack(true);
             i2c::set_start(true);
             
             return true;
@@ -116,10 +117,10 @@ namespace{
       static void sb1_irq_handler()
       {
         // serial_port::write("sb\n");
-         uint16_t sr1 = i2c::get_sr1();
+         uint16_t const sr1 = i2c::get_sr1();
          constexpr uint16_t sb = quan::bit<uint16_t>(0);
          if ((sr1 & sb) == 0U){
-           led::on();
+          // led::on();
            serial_port::write("!sb\n");
          }
          i2c::send_address(m_device_address); 
@@ -133,8 +134,14 @@ namespace{
          uint16_t sr1 = i2c::get_sr1();
          constexpr uint16_t addr = quan::bit<uint16_t>(1);
          if ((sr1 & addr) == 0U){
-            led::on();
+          //  led::on();
             serial_port::write("!ad\n");
+         }
+        
+
+         if (!i2c::get_sr1_txe()){
+           // led::on();
+            serial_port::write("!tx1\n");
          }
          (void) i2c::get_sr2();
          i2c::enable_buffer_interrupts(true);
@@ -145,6 +152,10 @@ namespace{
       static void data_addr_lo_handler()
       {
           ///led::on();
+          if (!i2c::get_sr1_txe()){
+         //   led::on();
+            serial_port::write("!tx2\n");
+          }
           i2c::send_data(m_data_address[1]);
           i2c_set_event_handler(dma_data_address_handler);
          
@@ -195,18 +206,9 @@ namespace{
       {
           led::on();
          // serial_port::write("dx\n");
-          i2c::enable_dma_stream(false);
-          i2c::clear_dma_stream_flags();
+        //  i2c::enable_dma_stream(false);
+          i2c::clear_dma_stream_tcif();
           i2c::enable_dma_bit(false);
-          i2c_set_dma_handler(default_i2c3_dma_handler);
-          i2c_set_event_handler(data_end_handler);
-          i2c::enable_event_interrupts(true); // to get btf
-      }
-      // btf at end of data transfer
-      static void data_end_handler()
-      {
-         // serial_port::write("de\n");
-          i2c::enable_event_interrupts(false); 
           i2c::set_stop(true);
           teardown();   
       }
@@ -260,28 +262,29 @@ namespace{
       static uint16_t m_data_length;
       static uint8_t  m_data_address[2];
       static uint8_t  m_device_address;
-      static bool     m_active_flag;
+      static volatile bool   m_active_flag;
    };
 
-   uint8_t const * i2c_eeprom_writer::m_p_data = nullptr;
-   uint16_t i2c_eeprom_writer::m_data_length = 0U;
-   uint8_t  i2c_eeprom_writer::m_data_address[] = {0U,0U};
-   uint8_t  i2c_eeprom_writer::m_device_address = 0U;
-   bool     i2c_eeprom_writer::m_active_flag = false;
+   uint8_t const *   i2c_eeprom_writer::m_p_data = nullptr;
+   uint16_t          i2c_eeprom_writer::m_data_length = 0U;
+   uint8_t           i2c_eeprom_writer::m_data_address[] = {0U,0U};
+   uint8_t           i2c_eeprom_writer::m_device_address = 0U;
+   volatile bool     i2c_eeprom_writer::m_active_flag = false;
 
-   char data_out[] = {"Xndy123"};  // the data to write
+   
    
 } // ~namespace
 
 /*
    test function
 */
+char data_out[] = {"XoBA123"};  // the data to write
 bool eeprom_irq_test()
 {
     static constexpr uint8_t eeprom_addr = 0b10100000;
 
-
-    i2c_eeprom_writer::setup( eeprom_addr ,5U,(uint8_t const*)data_out,8);
+    
+    i2c_eeprom_writer::setup( eeprom_addr ,6U,(uint8_t const*)data_out,8);
 
     auto now = quan::stm32::millis();
     typedef decltype(now) ms;
@@ -308,9 +311,8 @@ bool eeprom_irq_test()
          
          return false;
     }
-    
+   // i2c::enable_dma_stream(false);
     now = quan::stm32::millis();
-
     while( (quan::stm32::millis() - now) < ms{6U}){;}
     return true;
 }
