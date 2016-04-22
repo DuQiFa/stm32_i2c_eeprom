@@ -19,8 +19,6 @@
     to use bus check busy first
     recored last write time to eeprom
     and use that to see if it is ok to read ( write takes 5 ms)
-    
-
 */
 
 namespace{
@@ -43,25 +41,6 @@ namespace{
    }
 
    volatile bool bus_taken_token = false;
-
-   // if bus not active then acquire some token representing the bus
-//   bool get_i2c_bus()
-//   {
-//      if (bus_taken_token ){
-//         return false;
-//      }
-//      if ( i2c::is_busy()){  // shouldnt get here
-//         panic("i2c bus busy but bus token is free");
-//      }
-//      return bus_taken_token = true;
-//   }
-//
-//   bool release_i2c_bus()
-//   {
-//      // check for bus not taken --> panic
-//      // check for bus busy --> panic 
-//      return bus_taken_token = false;
-//   }
 
    // do an eeprom write
    // should work in irqs and dma only afap
@@ -95,12 +74,8 @@ namespace{
          }else{
             panic("couldnt get bus");
             return false;
-         }
-         
+         }    
       }
-      // this alg may not be active but bus may still busy
-      // so check for i2c_is_busy() too
-   //   static bool active(){ return m_active_flag ;}
 
   private:
 
@@ -169,8 +144,6 @@ namespace{
          panic ("i2c error");
       }
 
-     
-      
       static uint8_t const * m_p_data;
       static uint16_t m_data_length;
       static uint8_t  m_data_address[2]; // could do for dma in dma avail memmory
@@ -187,6 +160,7 @@ namespace{
    test function
 */
 char data_out[] = {"healthy"};  // the data to write n.b in dma available memory
+
 bool eeprom_tx_irq_test()
 {
     static constexpr uint8_t eeprom_addr = 0b10100000;
