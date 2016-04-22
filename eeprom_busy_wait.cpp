@@ -45,7 +45,7 @@ bool eeprom_busy_wait_test()
   //    write_delay();  // wait for eeprom write to complete
 
       // put some data here to check it is being overwritten
-      constexpr uint8_t num = 12;
+      constexpr uint8_t num = 8;
       char data_in[num] = {"-------"};
 
       bool result = eeprom_read(5U,(uint8_t*)data_in,num);
@@ -82,14 +82,52 @@ namespace {
    // 24LC128 eeprom address (low 3 bits dependent on pins)
    static constexpr uint8_t eeprom_addr = 0b10100000;
 
+   void wrer(const char* text)
+   {
+       serial_port::write("i2c err :\"");
+       serial_port::write(text);
+       serial_port::write("\"\n");
+   }
+
+   void check_i2c_errors()
+   {
+       constexpr auto ovr = quan::bit<uint16_t>(11); // overrun 
+       constexpr auto af  = quan::bit<uint16_t>(10);  // ack failure
+       constexpr auto arlo    = quan::bit<uint16_t>(9);    // arbitration lost
+       constexpr auto berr    = quan::bit<uint16_t>(8);    // bus error
+       constexpr uint16_t error_mask = ovr | af | arlo | berr;
+
+       uint16_t const sr1 = i2c::get_sr1();
+       if (sr1 & error_mask){
+            if (sr1 & ovr){
+               wrer("overrun");
+            }
+            if (sr1 & af){
+               wrer("ack fail");
+            }
+
+            if (sr1 & arlo){
+               wrer("arb lost");
+            }
+
+            if (sr1 & berr){
+               wrer("bus error");
+            }
+       }
+           
+   }
+
    // wait for a flag function for a specified time
    bool event(bool (*pf)(void), bool wanted_result, quan::time_<uint32_t>::ms timeout)
    {
       quan::time_<uint32_t>::ms start = quan::stm32::millis();
+      
       while (pf() != wanted_result){
          if ((quan::stm32::millis() - start) >= timeout){
             return false;
          }
+        
+         
       }
       return true;
    }
@@ -114,7 +152,8 @@ namespace {
    bool eeprom_send_data(uint8_t const * data, uint32_t len)
    {
       typedef quan::time_<uint32_t>::ms ms;
-      for ( uint8_t i = 0; i < len; ++i){
+      for ( uint8_t i = 0U; i < len; ++i){
+          check_i2c_errors();
          if (event(i2c::get_sr1_txe,true,ms{200U})){
             i2c::send_data( data[i]);
          }else {
@@ -129,28 +168,34 @@ namespace {
    {
       typedef quan::time_<uint32_t>::ms ms;
 
+
+      check_i2c_errors();
+
       if (event(i2c::is_busy,false,ms{200U})){
          i2c::set_start(true);
       }else {
          return error("i2c busy forever");
       }
+       check_i2c_errors();
       
       if(event(i2c::get_sr1_sb,true,ms{200U})){ 
          i2c::send_address(eeprom_addr );
       }else{
          return error("couldnt get sb 1");
       }
+      check_i2c_errors();
 
       if (event(i2c::get_sr1_addr,true,ms{200U})){
          (void) i2c::get_sr2_msl();  
       }else{
          return error("no addr set 1");
       }
-
+       check_i2c_errors();
+      // wait for txe
       // send the address in the eeprom to write to
       uint8_t buf[2] = {
-         static_cast<uint8_t>((address && 0xFF00) >> 8),
-         static_cast<uint8_t>(address && 0xFF)
+         static_cast<uint8_t>((address & 0xFF00) >> 8),
+         static_cast<uint8_t>(address & 0xFF)
       };
       return eeprom_send_data(buf,2);
    }
@@ -162,6 +207,7 @@ followed by read command
 */
    bool eeprom_read(uint16_t address, uint8_t* data, uint32_t len)
    {
+      
       typedef quan::time_<uint32_t>::ms ms;
 
       if (!eeprom_common(address)){
@@ -169,34 +215,38 @@ followed by read command
       }
       // after common part wait for btf which signifies 
       // can send "restart"
+       check_i2c_errors();
       if ( event(i2c::get_sr1_btf,true,ms{200U})){
          i2c::set_start(true);
       }else{
          return error("no btf");
       }
+       check_i2c_errors();
       // now send the read address
       if (event(i2c::get_sr1_sb,true,ms{200U})){
          i2c::send_address(eeprom_addr | 1);
       }else{
          return error("couldnt get sb 2");
       }
-       
+        check_i2c_errors();
       if (event(i2c::get_sr1_addr,true,ms{200U})){
          (void) i2c::get_sr2_msl();
       }else{
          return error("no addr set 2");
       }
-
+      check_i2c_errors();
       uint32_t bytes_left = len;
       i2c::set_ack(true);
 
       for ( uint32_t i = 0; i < len; ++i){
+         check_i2c_errors();
          if ( event(i2c::get_sr1_rxne,true,ms{200U})){
             if ( bytes_left == 1){
                i2c::set_ack(false);
                i2c::set_stop(true);
             }
             data[i] = i2c::receive_data();
+             
             --bytes_left;
          }else{
             return error("no rxne");
@@ -213,7 +263,7 @@ followed by read command
       if (!eeprom_common(address)){return false;}
 
       if (!eeprom_send_data(data,len)){return false;}
-
+      check_i2c_errors();
       if (event(i2c::get_sr1_btf,true,ms{200U})){
          i2c::set_stop(true);
          serial_port::write("data written ok\n");

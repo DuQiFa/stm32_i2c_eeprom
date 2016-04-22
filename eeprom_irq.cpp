@@ -137,18 +137,17 @@ namespace{
           //  led::on();
             serial_port::write("!ad\n");
          }
-        
-
          if (!i2c::get_sr1_txe()){
            // led::on();
             serial_port::write("!tx1\n");
          }
          (void) i2c::get_sr2();
-         i2c::enable_buffer_interrupts(true);
+         i2c::enable_buffer_interrupts(true); 
          i2c::send_data(m_data_address[0]);
          i2c_set_event_handler(data_addr_lo_handler);
       }
-      
+      // txe on first data address
+      // send second
       static void data_addr_lo_handler()
       {
           ///led::on();
@@ -161,35 +160,8 @@ namespace{
          
       }
 
-      
-//      static void  dma_start_handler()
-//      {
-//        // led::on();
-//         if (!i2c::get_sr1_txe()){
-//            
-//            serial_port::write("!txe\n");
-//         }
-//         i2c::enable_event_interrupts(false); // dont want events during transfer
-//
-//         i2c_set_dma_handler(dma_data_address_handler);
-//         i2c::set_dma_tx_buffer(m_data_address, 2); // set up dma on the 2 eeprom address bytes
-//         i2c::enable_dma_bit(true);
-//         i2c::clear_dma_stream_flags();
-//         i2c::enable_dma_stream(true); // start dma
-//         
-//      }
-
-      // dma transfer complete event at
-      // end of 2 byte eeprom data address send.
-      // clear the dma flags in software and
-      // set up and send the data to be transmitted
-      // set up a new dma handler for this
       static void dma_data_address_handler()
       {
-//#########################
-//#error not getting here 
-         // led::on();
-         // serial_port::write("dm\n");
           i2c::enable_event_interrupts(false);
           i2c::enable_buffer_interrupts(false);
           i2c::enable_dma_stream(false);
@@ -200,7 +172,9 @@ namespace{
           i2c::enable_dma_stream(true);
       }
 
-      // dma handler called at end of data send
+      // dma handler called at last dma dat sent
+      // interface will contimue
+      // till btf
       // disable dma and catch btf
       static void dma_data_end_handler()
       {
@@ -284,7 +258,7 @@ bool eeprom_irq_test()
     static constexpr uint8_t eeprom_addr = 0b10100000;
 
     
-    i2c_eeprom_writer::setup( eeprom_addr ,6U,(uint8_t const*)data_out,8);
+    i2c_eeprom_writer::setup( eeprom_addr ,5U,(uint8_t const*)data_out,8);
 
     auto now = quan::stm32::millis();
     typedef decltype(now) ms;
@@ -364,7 +338,7 @@ namespace {
    {
       pfn_i2c3_event_irq_handler = default_i2c3_event_irq_handler;
       pfn_i2c3_error_irq_handler = default_i2c3_error_irq_handler;
-      pfn_i2c3_dma_handler = default_i2c3_dma_handler;
+      pfn_i2c3_dma_handler       = default_i2c3_dma_handler;
    }
 }
 
