@@ -1,6 +1,10 @@
 #ifndef QUAN_STM32_EEPROM_TEST_I2C_HPP_INCLUDED
 #define QUAN_STM32_EEPROM_TEST_I2C_HPP_INCLUDED
 
+extern "C" void DMA1_Stream4_IRQHandler() __attribute__ ( (interrupt ("IRQ")));
+extern "C" void I2C3_EV_IRQHandler() __attribute__ ((interrupt ("IRQ")));
+extern "C" void I2C3_ER_IRQHandler() __attribute__ ((interrupt ("IRQ")));
+
 struct i2c{
 
    static void init();
@@ -8,6 +12,15 @@ struct i2c{
 
    static bool get_bus();
    static bool release_bus();
+
+   static void default_event_handler();
+   static void default_error_handler();
+   static void default_dma_handler();
+
+   static void set_default_handlers();
+   static void set_event_handler( void(*pfn_event)());
+   static void set_error_handler( void(*pfn_event)());
+   static void set_dma_handler( void(*pfn_event)());
 
    static void set_ack(bool b);
    static void set_start(bool b);
@@ -38,12 +51,19 @@ struct i2c{
    static uint8_t receive_data();
    static const char* get_error_string();
 
-   private:
-      static void setup_tx_dma();
-      static volatile bool m_bus_taken_token;
-      i2c() = delete;
-      i2c(i2c const & ) = delete;
-      i2c& operator = (i2c&) = delete;
+private:
+   friend void ::DMA1_Stream4_IRQHandler() ;
+   friend void ::I2C3_EV_IRQHandler() ;
+   friend void ::I2C3_ER_IRQHandler();
+   static void setup_tx_dma();
+   static volatile bool m_bus_taken_token;
+   i2c() = delete;
+   i2c(i2c const & ) = delete;
+   i2c& operator = (i2c&) = delete;
+
+   static void (* volatile pfn_event_handler)();// = default_event_irq_handler;
+   static void (* volatile pfn_error_handler)() ;// = default_error_irq_handler;
+   static void (* volatile pfn_dma_handler)();// = default_dma_handler;
 
 };
 

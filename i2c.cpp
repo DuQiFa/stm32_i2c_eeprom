@@ -10,6 +10,7 @@
 #include "i2c.hpp"
 
 #include "interrupt_priority.hpp"
+#include "serial_port.hpp"
 
 namespace {
    // PA8  I2C3_SCL
@@ -22,6 +23,9 @@ namespace {
 }
 
 volatile bool i2c::m_bus_taken_token = false;
+void (* volatile i2c::pfn_event_handler)()  = i2c::default_event_handler;
+void (* volatile i2c::pfn_error_handler)()  = i2c::default_error_handler;
+void (* volatile i2c::pfn_dma_handler)()    = i2c::default_dma_handler;
 
 bool i2c::get_bus()
 {
@@ -272,6 +276,68 @@ void i2c::set_ack(bool b)
 const char* i2c::get_error_string()
 {
    return "error todo";
+}
+
+void i2c::default_event_handler()
+{
+    panic("i2c event def called");
+   // shouldnt be called
+   // clear irq flags
+   // print panic message
+}
+void i2c::default_error_handler()
+{
+   panic("i2c error def called");
+   // clear error flags
+   // reset i2c3 interface
+   // print panic message
+}
+
+void i2c::default_dma_handler()
+{
+    panic("i2c dma def called");
+    // shouldnt be called
+    // clear flags and print panic message
+}
+
+void i2c::set_dma_handler( void(*pfn_event)())
+{
+   pfn_dma_handler = pfn_event;
+}
+
+void i2c::set_event_handler( void(*pfn_event)())
+{
+   pfn_event_handler = pfn_event;
+}
+
+void i2c::set_error_handler( void(*pfn_event)())
+{
+   pfn_error_handler = pfn_event;
+}
+
+extern "C" void DMA1_Stream4_IRQHandler() __attribute__ ( (interrupt ("IRQ")));
+extern "C" void DMA1_Stream4_IRQHandler()
+{
+   i2c::pfn_dma_handler();
+}
+
+extern "C" void I2C3_EV_IRQHandler() __attribute__ ((interrupt ("IRQ")));
+extern "C" void I2C3_EV_IRQHandler()
+{
+   i2c::pfn_event_handler();
+}
+
+extern "C" void I2C3_ER_IRQHandler() __attribute__ ((interrupt ("IRQ")));
+extern "C" void I2C3_ER_IRQHandler()
+{
+   i2c::pfn_error_handler();
+}
+
+void i2c::set_default_handlers()
+{
+   pfn_event_handler = default_event_handler;
+   pfn_error_handler = default_error_handler;
+   pfn_dma_handler   = default_dma_handler;
 }
 
 //extern "C" void I2C3_EV_IRQHandler() __attribute__ ((interrupt ("IRQ")));

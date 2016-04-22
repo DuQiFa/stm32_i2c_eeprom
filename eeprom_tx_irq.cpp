@@ -23,22 +23,22 @@
 
 namespace{
 
-   void default_i2c3_dma_handler();
-
-   void i2c_set_default_handlers();
-   void i2c_set_event_handler( void(*pfn_event)());
-   void i2c_set_error_handler( void(*pfn_event)());
-   void i2c_set_dma_handler( void(*pfn_event)());
+//   void default_i2c3_dma_handler();
+//
+//   void i2c_set_default_handlers();
+//   void i2c_set_event_handler( void(*pfn_event)());
+//   void i2c_set_error_handler( void(*pfn_event)());
+//   void i2c_set_dma_handler( void(*pfn_event)());
 
    bool eeprom_write_irq( uint16_t address, uint8_t const * data, uint32_t len);
    bool eeprom_read_irq( uint16_t address, uint8_t * data, uint32_t len);
 
-   void panic(const char* str)
-   {
-      serial_port::write("PANIC : ");
-      serial_port::write(str);
-      serial_port::put('\n');
-   }
+//   void panic(const char* str)
+//   {
+//      serial_port::write("PANIC : ");
+//      serial_port::write(str);
+//      serial_port::put('\n');
+//   }
 
    volatile bool bus_taken_token = false;
 
@@ -64,8 +64,8 @@ namespace{
             m_device_address = device_address;
            
           //  setup_tx_dma();
-            i2c_set_error_handler(error_irq_handler);
-            i2c_set_event_handler(sb1_irq_handler);
+            i2c::set_error_handler(error_irq_handler);
+            i2c::set_event_handler(sb1_irq_handler);
             // start the process..
             i2c::enable_event_interrupts(true);
             i2c::enable_dma_bit(true);
@@ -86,7 +86,7 @@ namespace{
       {
          i2c::get_sr1();
          i2c::send_address(m_device_address); 
-         i2c_set_event_handler(dev_addr1_handler);
+         i2c::set_event_handler(dev_addr1_handler);
       }
 
       // device address sent event. EV6
@@ -98,14 +98,14 @@ namespace{
          i2c::get_sr2();
          i2c::send_data(m_data_address[0]);
          i2c::enable_buffer_interrupts(true);
-         i2c_set_event_handler(data_addr_lo_handler);
+         i2c::set_event_handler(data_addr_lo_handler);
       }
       // txe on first data address
       // send second byte of data address
       static void data_addr_lo_handler()
       {
           i2c::send_data(m_data_address[1]);
-          i2c_set_event_handler(dma_data_address_handler);
+          i2c::set_event_handler(dma_data_address_handler);
       }
 
       // send the data using dma
@@ -114,7 +114,7 @@ namespace{
           i2c::enable_event_interrupts(false);
           i2c::enable_buffer_interrupts(false);
           i2c::enable_dma_stream(false);
-          i2c_set_dma_handler(dma_data_end_handler);
+          i2c::set_dma_handler(dma_data_end_handler);
           i2c::set_dma_tx_buffer(m_p_data,m_data_length);
           i2c::clear_dma_stream_flags();
           i2c::enable_dma_stream(true);
@@ -127,7 +127,7 @@ namespace{
          i2c::enable_dma_bit(false);
          i2c::clear_dma_stream_tcif();
          i2c::enable_event_interrupts(true);
-         i2c_set_event_handler(stop1_handler);  
+         i2c::set_event_handler(stop1_handler);  
       }
 
       // btf at end of last byte transfer
@@ -135,7 +135,7 @@ namespace{
       {
          i2c::enable_event_interrupts(false);
          i2c::set_stop(true);
-         i2c_set_default_handlers();
+         i2c::set_default_handlers();
          i2c::release_bus();
       }
 
@@ -220,48 +220,47 @@ namespace {
        // clear flags and print panic message
    }
 
-   void (* volatile pfn_i2c3_event_irq_handler)() = default_i2c3_event_irq_handler;
-   void (* volatile pfn_i2c3_error_irq_handler)() = default_i2c3_error_irq_handler;
-   void (* volatile pfn_i2c3_dma_handler)() = default_i2c3_dma_handler;
+//   void (* volatile pfn_i2c3_event_irq_handler)() = default_i2c3_event_irq_handler;
+//   void (* volatile pfn_i2c3_error_irq_handler)() = default_i2c3_error_irq_handler;
+//   void (* volatile pfn_i2c3_dma_handler)() = default_i2c3_dma_handler;
 
-   void i2c_set_dma_handler( void(*pfn_event)())
-   {
-      pfn_i2c3_dma_handler = pfn_event;
-   }
+//   void i2c_set_dma_handler( void(*pfn_event)())
+//   {
+//      pfn_i2c3_dma_handler = pfn_event;
+//   }
+//
+//   void i2c_set_event_handler( void(*pfn_event)())
+//   {
+//      pfn_i2c3_event_irq_handler = pfn_event;
+//   }
+//
+//   void i2c_set_error_handler( void(*pfn_event)())
+//   {
+//      pfn_i2c3_error_irq_handler = pfn_event;
+//   }
+//
+//   void i2c_set_default_handlers()
+//   {
+//      pfn_i2c3_event_irq_handler = default_i2c3_event_irq_handler;
+//      pfn_i2c3_error_irq_handler = default_i2c3_error_irq_handler;
+//      pfn_i2c3_dma_handler       = default_i2c3_dma_handler;
+//   }
+} // ~namespace
 
-   void i2c_set_event_handler( void(*pfn_event)())
-   {
-      pfn_i2c3_event_irq_handler = pfn_event;
-   }
-
-   void i2c_set_error_handler( void(*pfn_event)())
-   {
-      pfn_i2c3_error_irq_handler = pfn_event;
-   }
-
-   void i2c_set_default_handlers()
-   {
-      pfn_i2c3_event_irq_handler = default_i2c3_event_irq_handler;
-      pfn_i2c3_error_irq_handler = default_i2c3_error_irq_handler;
-      pfn_i2c3_dma_handler       = default_i2c3_dma_handler;
-   }
-}
-
-extern "C" void DMA1_Stream4_IRQHandler() __attribute__ ( (interrupt ("IRQ")));
-
-extern "C" void DMA1_Stream4_IRQHandler()
-{
-   pfn_i2c3_dma_handler();
-}
-
-extern "C" void I2C3_EV_IRQHandler() __attribute__ ((interrupt ("IRQ")));
-extern "C" void I2C3_EV_IRQHandler()
-{
-   pfn_i2c3_event_irq_handler();
-}
-
-extern "C" void I2C3_ER_IRQHandler() __attribute__ ((interrupt ("IRQ")));
-extern "C" void I2C3_ER_IRQHandler()
-{
-   pfn_i2c3_error_irq_handler();
-}
+//extern "C" void DMA1_Stream4_IRQHandler() __attribute__ ( (interrupt ("IRQ")));
+//extern "C" void DMA1_Stream4_IRQHandler()
+//{
+//   pfn_i2c3_dma_handler();
+//}
+//
+//extern "C" void I2C3_EV_IRQHandler() __attribute__ ((interrupt ("IRQ")));
+//extern "C" void I2C3_EV_IRQHandler()
+//{
+//   pfn_i2c3_event_irq_handler();
+//}
+//
+//extern "C" void I2C3_ER_IRQHandler() __attribute__ ((interrupt ("IRQ")));
+//extern "C" void I2C3_ER_IRQHandler()
+//{
+//   pfn_i2c3_error_irq_handler();
+//}

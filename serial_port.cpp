@@ -15,3 +15,12 @@ extern "C" void USART1_IRQHandler()
    quan::stm32::usart::irq_handler<serial_port>();
 }
 
+void panic(const char* str)
+{
+   serial_port::write("PANIC : ");
+   serial_port::write(str);
+   serial_port::put('\n');
+}
+
+
+
