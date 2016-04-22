@@ -13,6 +13,8 @@
    * Acquire the bus and install plugin
    * do work
    * remove plugin and release bus
+    Plugin part is the irq and dma functions
+    
 
 */
 
@@ -66,8 +68,8 @@ namespace{
       return bus_taken_token = false;
    }
 
-   // functions to do an eeprom read
-   // should work in irqs and dma only
+   // do an eeprom write
+   // should work in irqs and dma only afap
 
    struct i2c_eeprom_writer{
 
@@ -129,16 +131,15 @@ namespace{
 
       // device address sent event. EV6
       // Clear by reading SR1 followed by reading SR2.
+      // send first bayte of data address
       static void dev_addr1_handler()
       {
          uint16_t sr1 = i2c::get_sr1();
          constexpr uint16_t addr = quan::bit<uint16_t>(1);
          if ((sr1 & addr) == 0U){
-          //  led::on();
             serial_port::write("!ad\n");
          }
          if (!i2c::get_sr1_txe()){
-           // led::on();
             serial_port::write("!tx1\n");
          }
          (void) i2c::get_sr2();
@@ -147,17 +148,14 @@ namespace{
          i2c_set_event_handler(data_addr_lo_handler);
       }
       // txe on first data address
-      // send second
+      // send second byte of data address
       static void data_addr_lo_handler()
       {
-          ///led::on();
           if (!i2c::get_sr1_txe()){
-         //   led::on();
             serial_port::write("!tx2\n");
           }
           i2c::send_data(m_data_address[1]);
           i2c_set_event_handler(dma_data_address_handler);
-         
       }
 
       static void dma_data_address_handler()
@@ -172,10 +170,9 @@ namespace{
           i2c::enable_dma_stream(true);
       }
 
-      // dma handler called at last dma dat sent
-      // interface will contimue
-      // till btf
-      // disable dma and catch btf
+      // dma handler called when last byte of data sent
+      // N.B. i2c interface will contimue till btf/ stop
+      // disable dma and set stop
       static void dma_data_end_handler()
       {
           led::on();
@@ -234,7 +231,7 @@ namespace{
 
       static uint8_t const * m_p_data;
       static uint16_t m_data_length;
-      static uint8_t  m_data_address[2];
+      static uint8_t  m_data_address[2]; // could do for dma in dma avail memmory
       static uint8_t  m_device_address;
       static volatile bool   m_active_flag;
    };
@@ -252,17 +249,14 @@ namespace{
 /*
    test function
 */
-char data_out[] = {"XoBA123"};  // the data to write
+char data_out[] = {"XoBA123"};  // the data to write n.b in dma available memory
 bool eeprom_irq_test()
 {
     static constexpr uint8_t eeprom_addr = 0b10100000;
-
-    
     i2c_eeprom_writer::setup( eeprom_addr ,5U,(uint8_t const*)data_out,8);
 
     auto now = quan::stm32::millis();
     typedef decltype(now) ms;
-   // serial_port::write("testing write irq \n");
     while(i2c_eeprom_writer::active() && ((quan::stm32::millis() - now) < ms{500U})){;}
  
     if (i2c_eeprom_writer::active()){
