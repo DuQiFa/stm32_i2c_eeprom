@@ -28,7 +28,7 @@ extern "C" void setup()
     setup_systick();
     setup_serial_port();
     led::setup();
-   // i2c::init();
+    i2c::init();
 }
 
 volatile uint32_t quan::stm32::detail::systick_tick::current = 0U;

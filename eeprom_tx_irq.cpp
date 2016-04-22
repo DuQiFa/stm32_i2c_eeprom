@@ -84,7 +84,7 @@ namespace{
             m_data_address[1] = static_cast<uint8_t>(data_address & 0xFF);
             m_device_address = device_address;
            
-            setup_dma();
+          //  setup_tx_dma();
             i2c_set_error_handler(error_irq_handler);
             i2c_set_event_handler(sb1_irq_handler);
             // start the process..
@@ -169,59 +169,18 @@ namespace{
          panic ("i2c error");
       }
 
-      static void setup_dma()
-      {
-         // i2c3 tx on DMA1_Stream4.CH3
-         quan::stm32::rcc::get()->ahb1enr |= (1 << 21); // DMA stream 1
-         for ( uint8_t i = 0; i < 20; ++i){
-            asm volatile ("nop" : : :);
-         }
-         DMA_Stream_TypeDef* dma_stream = DMA1_Stream4;
-         constexpr uint32_t  dma_channel = 3;
-         constexpr uint32_t  dma_priority = 0b00; // low
-         constexpr uint32_t  msize = 0b00; // 8 bit mem loc
-         constexpr uint32_t  psize = 0b00; // 8 bit periph loc 
-         dma_stream->CR = (dma_stream->CR & ~(0b111 << 25U)) | ( dma_channel << 25U); //(CHSEL) select channel
-         dma_stream->CR = (dma_stream->CR & ~(0b11 << 16U)) | (dma_priority << 16U); // (PL) priority
-         dma_stream->CR = (dma_stream->CR & ~(0b11 << 13U)) | (msize << 13U); // (MSIZE) 8 bit memory transfer
-         dma_stream->CR = (dma_stream->CR & ~(0b11 << 11U)) | (psize << 11U); // (PSIZE) 16 bit transfer
-         dma_stream->CR |= (1 << 10);// (MINC)
-         dma_stream->CR &= ~(1 << 9);// (PINC)
-         dma_stream->CR = (dma_stream->CR & ~(0b11 << 6U)) | (0b01 << 6U) ; // (DIR ) memory to peripheral
-         dma_stream->CR |= ( 1 << 4) ; // (TCIE)
-         dma_stream->PAR = (uint32_t)&I2C3->DR;  // periph addr
-         NVIC_SetPriority(DMA1_Stream4_IRQn,15);  // low prio
-         NVIC_EnableIRQ(DMA1_Stream4_IRQn);
-
-//       to get stream running
-//         dma_stream->M0AR = (uint32_t)x; // buffer address
-//         dma_stream->NDTR = j;           // num data
-//         DMA1->HIFCR |= (0b111101 << 0) ; // clear flags for Dma1 Stream 4
-//         constexpr uint8_t cr2_dmaen = 11;
-//         i2c_type::get()->cr2.bb_setbit<cr2_dmaen>(); set dma bit in i2c3
-//         DMA1_Stream4->CR |= (1 << 0); // (EN)  enable DMA stream
-      }
+     
       
-//      static void teardown()
-//      {
-//         //i2c_set_default_handlers();
-//         m_active_flag = false;
-//         
-//      }
-
       static uint8_t const * m_p_data;
       static uint16_t m_data_length;
       static uint8_t  m_data_address[2]; // could do for dma in dma avail memmory
       static uint8_t  m_device_address;
-     // static volatile bool   m_active_flag;
    };
 
    uint8_t const *   i2c_eeprom_writer::m_p_data = nullptr;
    uint16_t          i2c_eeprom_writer::m_data_length = 0U;
    uint8_t           i2c_eeprom_writer::m_data_address[] = {0U,0U};
    uint8_t           i2c_eeprom_writer::m_device_address = 0U;
-  // volatile bool     i2c_eeprom_writer::m_active_flag = false;
-
 } // ~namespace
 
 /*
