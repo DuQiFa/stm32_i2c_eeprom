@@ -13,7 +13,7 @@
 extern "C" void setup();
 
 bool eeprom_busy_wait_test();
-bool eeprom_irq_test();
+bool eeprom_tx_irq_test();
 
 int main()
 {
@@ -21,7 +21,7 @@ int main()
 
 // choose function to use
 
-   eeprom_irq_test();
+   eeprom_tx_irq_test();
 
   // i2c::init();
    eeprom_busy_wait_test();

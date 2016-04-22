@@ -232,15 +232,13 @@ namespace{
    uint8_t           i2c_eeprom_writer::m_device_address = 0U;
    volatile bool     i2c_eeprom_writer::m_active_flag = false;
 
-   
-   
 } // ~namespace
 
 /*
    test function
 */
 char data_out[] = {"healthy"};  // the data to write n.b in dma available memory
-bool eeprom_irq_test()
+bool eeprom_tx_irq_test()
 {
     static constexpr uint8_t eeprom_addr = 0b10100000;
     i2c_eeprom_writer::setup( eeprom_addr ,5U,(uint8_t const*)data_out,8);

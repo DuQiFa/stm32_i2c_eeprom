@@ -83,7 +83,7 @@ ODFLAGS = -d
 
 STARTUP = startup.s
 
-local_objects = main.o eeprom_busy_wait.o serial_port.o eeprom_irq.o i2c.o led.o setup.o spbrk.o system_init.o
+local_objects = main.o eeprom_busy_wait.o serial_port.o eeprom_tx_irq.o i2c.o led.o setup.o spbrk.o system_init.o
 
 objects  = $(local_objects) startup.o
 
