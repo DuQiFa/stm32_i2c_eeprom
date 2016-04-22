@@ -10,14 +10,6 @@
 
 namespace{
 
-//   bool eeprom_write_irq( uint16_t address, uint8_t const * data, uint32_t len);
-//   bool eeprom_read_irq( uint16_t address, uint8_t * data, uint32_t len);
-
-   volatile bool bus_taken_token = false;
-
-   // do an eeprom write
-   // should work in irqs and dma only afap
-
    struct i2c_eeprom_writer{
 
       // return true if setup ok
