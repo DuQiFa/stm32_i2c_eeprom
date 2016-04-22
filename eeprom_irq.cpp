@@ -14,6 +14,11 @@
    * do work
    * remove plugin and release bus
     Plugin part is the irq and dma functions
+
+    add fun to release bus
+    to use bus check busy first
+    recored last write time to eeprom
+    and use that to see if it is ok to read ( write takes 5 ms)
     
 
 */
@@ -93,12 +98,10 @@ namespace{
             setup_dma();
             i2c_set_error_handler(error_irq_handler);
             i2c_set_event_handler(sb1_irq_handler);
-            //serial_port::write("eeprom irq was setup\n");
             // start the process..
             i2c::enable_event_interrupts(true);
-            i2c::set_ack(true);
+            i2c::enable_dma_bit(true);
             i2c::set_start(true);
-            
             return true;
          }else{
             panic("couldnt get bus");
@@ -106,25 +109,18 @@ namespace{
          }
          
       }
-      // this may not be active but bus still busy
-      // check for i2c_is_busy();
+      // this alg may not be active but bus may still busy
+      // so check for i2c_is_busy() too
       static bool active(){ return m_active_flag ;}
 
   private:
 
-      
       // Start condition generated event . (EV5)
       // Clear by reading sr1 and
       // then writing dr with address of i2c device
       static void sb1_irq_handler()
       {
-        // serial_port::write("sb\n");
-         uint16_t const sr1 = i2c::get_sr1();
-         constexpr uint16_t sb = quan::bit<uint16_t>(0);
-         if ((sr1 & sb) == 0U){
-          // led::on();
-           serial_port::write("!sb\n");
-         }
+         i2c::get_sr1();
          i2c::send_address(m_device_address); 
          i2c_set_event_handler(dev_addr1_handler);
       }
@@ -134,54 +130,48 @@ namespace{
       // send first bayte of data address
       static void dev_addr1_handler()
       {
-         uint16_t sr1 = i2c::get_sr1();
-         constexpr uint16_t addr = quan::bit<uint16_t>(1);
-         if ((sr1 & addr) == 0U){
-            serial_port::write("!ad\n");
-         }
-         if (!i2c::get_sr1_txe()){
-            serial_port::write("!tx1\n");
-         }
-         (void) i2c::get_sr2();
-         i2c::enable_buffer_interrupts(true); 
+         i2c::get_sr1();
+         i2c::get_sr2();
          i2c::send_data(m_data_address[0]);
+         i2c::enable_buffer_interrupts(true);
          i2c_set_event_handler(data_addr_lo_handler);
       }
       // txe on first data address
       // send second byte of data address
       static void data_addr_lo_handler()
       {
-          if (!i2c::get_sr1_txe()){
-            serial_port::write("!tx2\n");
-          }
           i2c::send_data(m_data_address[1]);
           i2c_set_event_handler(dma_data_address_handler);
       }
 
+      // send the data using dma
       static void dma_data_address_handler()
       {
           i2c::enable_event_interrupts(false);
           i2c::enable_buffer_interrupts(false);
           i2c::enable_dma_stream(false);
           i2c_set_dma_handler(dma_data_end_handler);
-          i2c::enable_dma_bit(true);
           i2c::set_dma_tx_buffer(m_p_data,m_data_length);
           i2c::clear_dma_stream_flags();
           i2c::enable_dma_stream(true);
       }
 
       // dma handler called when last byte of data sent
-      // N.B. i2c interface will contimue till btf/ stop
-      // disable dma and set stop
       static void dma_data_end_handler()
       {
-          led::on();
-         // serial_port::write("dx\n");
-        //  i2c::enable_dma_stream(false);
-          i2c::clear_dma_stream_tcif();
-          i2c::enable_dma_bit(false);
-          i2c::set_stop(true);
-          teardown();   
+         i2c::enable_dma_stream(false);
+         i2c::enable_dma_bit(false);
+         i2c::clear_dma_stream_tcif();
+         i2c::enable_event_interrupts(true);
+         i2c_set_event_handler(stop1_handler);  
+      }
+
+      // btf at end of last byte transfer
+      static void stop1_handler()
+      {
+         i2c::enable_event_interrupts(false);
+         i2c::set_stop(true);
+         teardown();
       }
 
       static void error_irq_handler()
@@ -224,7 +214,7 @@ namespace{
       
       static void teardown()
       {
-         i2c_set_default_handlers();
+         //i2c_set_default_handlers();
          m_active_flag = false;
          release_i2c_bus();
       }
@@ -249,7 +239,7 @@ namespace{
 /*
    test function
 */
-char data_out[] = {"XoBA123"};  // the data to write n.b in dma available memory
+char data_out[] = {"healthy"};  // the data to write n.b in dma available memory
 bool eeprom_irq_test()
 {
     static constexpr uint8_t eeprom_addr = 0b10100000;

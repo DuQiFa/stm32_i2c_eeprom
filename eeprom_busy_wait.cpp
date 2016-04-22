@@ -204,6 +204,10 @@ namespace {
 /*
 read consists of sending "dummy" write command with just address, 
 followed by read command
+  TODO possibly put the data address as first 2 bytes
+  then this would make dma faster and 
+  no need for single byte
+   Address has to be sent anyway
 */
    bool eeprom_read(uint16_t address, uint8_t* data, uint32_t len)
    {
