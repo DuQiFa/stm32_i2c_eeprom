@@ -8,37 +8,10 @@
 #include "led.hpp"
 #include <quan/conversion/itoa.hpp>
 
-/*
-   --- plug in arch per bus address ---
-   * Acquire the bus and install plugin
-   * do work
-   * remove plugin and release bus
-    Plugin part is the irq and dma functions
-
-    add fun to release bus
-    to use bus check busy first
-    recored last write time to eeprom
-    and use that to see if it is ok to read ( write takes 5 ms)
-*/
-
 namespace{
 
-//   void default_i2c3_dma_handler();
-//
-//   void i2c_set_default_handlers();
-//   void i2c_set_event_handler( void(*pfn_event)());
-//   void i2c_set_error_handler( void(*pfn_event)());
-//   void i2c_set_dma_handler( void(*pfn_event)());
-
-   bool eeprom_write_irq( uint16_t address, uint8_t const * data, uint32_t len);
-   bool eeprom_read_irq( uint16_t address, uint8_t * data, uint32_t len);
-
-//   void panic(const char* str)
-//   {
-//      serial_port::write("PANIC : ");
-//      serial_port::write(str);
-//      serial_port::put('\n');
-//   }
+//   bool eeprom_write_irq( uint16_t address, uint8_t const * data, uint32_t len);
+//   bool eeprom_read_irq( uint16_t address, uint8_t * data, uint32_t len);
 
    volatile bool bus_taken_token = false;
 
@@ -195,72 +168,3 @@ bool eeprom_tx_irq_test()
     while( (quan::stm32::millis() - now) < ms{6U}){;}
     return true;
 }
-
-namespace {
-
-   void default_i2c3_event_irq_handler()
-   {
-       panic("i2c event def called");
-      // shouldnt be called
-      // clear irq flags
-      // print panic message
-   }
-   void default_i2c3_error_irq_handler()
-   {
-      panic("i2c error def called");
-      // clear error flags
-      // reset i2c3 interface
-      // print panic message
-   }
-
-   void default_i2c3_dma_handler()
-   {
-       panic("i2c dma def called");
-       // shouldnt be called
-       // clear flags and print panic message
-   }
-
-//   void (* volatile pfn_i2c3_event_irq_handler)() = default_i2c3_event_irq_handler;
-//   void (* volatile pfn_i2c3_error_irq_handler)() = default_i2c3_error_irq_handler;
-//   void (* volatile pfn_i2c3_dma_handler)() = default_i2c3_dma_handler;
-
-//   void i2c_set_dma_handler( void(*pfn_event)())
-//   {
-//      pfn_i2c3_dma_handler = pfn_event;
-//   }
-//
-//   void i2c_set_event_handler( void(*pfn_event)())
-//   {
-//      pfn_i2c3_event_irq_handler = pfn_event;
-//   }
-//
-//   void i2c_set_error_handler( void(*pfn_event)())
-//   {
-//      pfn_i2c3_error_irq_handler = pfn_event;
-//   }
-//
-//   void i2c_set_default_handlers()
-//   {
-//      pfn_i2c3_event_irq_handler = default_i2c3_event_irq_handler;
-//      pfn_i2c3_error_irq_handler = default_i2c3_error_irq_handler;
-//      pfn_i2c3_dma_handler       = default_i2c3_dma_handler;
-//   }
-} // ~namespace
-
-//extern "C" void DMA1_Stream4_IRQHandler() __attribute__ ( (interrupt ("IRQ")));
-//extern "C" void DMA1_Stream4_IRQHandler()
-//{
-//   pfn_i2c3_dma_handler();
-//}
-//
-//extern "C" void I2C3_EV_IRQHandler() __attribute__ ((interrupt ("IRQ")));
-//extern "C" void I2C3_EV_IRQHandler()
-//{
-//   pfn_i2c3_event_irq_handler();
-//}
-//
-//extern "C" void I2C3_ER_IRQHandler() __attribute__ ((interrupt ("IRQ")));
-//extern "C" void I2C3_ER_IRQHandler()
-//{
-//   pfn_i2c3_error_irq_handler();
-//}

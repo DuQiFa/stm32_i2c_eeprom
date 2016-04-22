@@ -43,8 +43,6 @@ bool i2c::release_bus()
 
 void i2c::init()
 {
-   // set mode
-
    quan::stm32::module_enable<i2c_type>();
    quan::stm32::module_enable<scl_pin::port_type>();
    quan::stm32::module_enable<sda_pin::port_type>();
@@ -140,47 +138,6 @@ void i2c::clear_dma_stream_flags()
     DMA1->HIFCR |= (0b111101 << 0U) ; // clear flags for Dma1 Stream 4
   //  DMA1->HIFCR &= ~(0b111101 << 0U) ; // clear flags for Dma1 Stream 4
 }
-// 
-//bool i2c::master_mode_selected()
-//{
-//   // busy  and master selected and in start bit
-//   return is_busy() && 
-//      get_sr2_msl() && 
-//      get_sr1_sb() ; 
-//}
-//
-//bool i2c::master_transmitter_selected() 
-//{
-//   // /* BUSY, MSL, ADDR, TXE and TRA flags */
-//
-//   return is_busy() && 
-//      get_sr2_msl() && 
-//      get_sr2_tra()  &&
-//      get_sr1_addr()  &&
-//      get_sr1_txe() ;
-//        
-//}
-//
-/////* TRA, BUSY, MSL, TXE flags */
-//bool i2c::master_byte_transmitting()
-//{
-//   return 
-//      get_sr2_tra()  &&
-//      is_busy() && 
-//      get_sr2_msl() && 
-//      get_sr1_txe() ;
-//}
-//
-// /* TRA, BUSY, MSL, TXE and BTF flags */
-//bool i2c::master_byte_transmitted() 
-//{
-//   return 
-//      get_sr2_tra()  &&
-//      is_busy() && 
-//      get_sr2_msl() && 
-//      get_sr1_txe() ;
-//      get_sr1_btf() ;
-//}
 
 void i2c::send_address(uint8_t data)
 {
@@ -257,13 +214,6 @@ void i2c::setup_tx_dma()
    NVIC_SetPriority(DMA1_Stream4_IRQn,15);  // low prio
    NVIC_EnableIRQ(DMA1_Stream4_IRQn);
 
-//       to get stream running
-//         dma_stream->M0AR = (uint32_t)buffer_address; // buffer address
-//         dma_stream->NDTR = num_data;           // num data
-//         DMA1->HIFCR |= (0b111101 << 0) ; // clear flags for Dma1 Stream 4
-//         constexpr uint8_t cr2_dmaen = 11;
-//         i2c_type::get()->cr2.bb_setbit<cr2_dmaen>(); set dma bit in i2c3
-//         DMA1_Stream4->CR |= (1 << 0); // (EN)  enable DMA stream
 }
 
 
@@ -281,23 +231,16 @@ const char* i2c::get_error_string()
 void i2c::default_event_handler()
 {
     panic("i2c event def called");
-   // shouldnt be called
-   // clear irq flags
-   // print panic message
 }
+
 void i2c::default_error_handler()
 {
    panic("i2c error def called");
-   // clear error flags
-   // reset i2c3 interface
-   // print panic message
 }
 
 void i2c::default_dma_handler()
 {
     panic("i2c dma def called");
-    // shouldnt be called
-    // clear flags and print panic message
 }
 
 void i2c::set_dma_handler( void(*pfn_event)())
@@ -339,19 +282,3 @@ void i2c::set_default_handlers()
    pfn_error_handler = default_error_handler;
    pfn_dma_handler   = default_dma_handler;
 }
-
-//extern "C" void I2C3_EV_IRQHandler() __attribute__ ((interrupt ("IRQ")));
-//extern "C" void I2C3_EV_IRQHandler()
-//{     
-//   static_assert(std::is_same<i2c_type, quan::stm32::i2c3>::value,"incorrect port irq");
-//  // i2c_port::handle_irq();
-//}
-//
-//extern "C" void I2C3_ER_IRQHandler() __attribute__ ((interrupt ("IRQ")));
-//extern "C" void I2C3_ER_IRQHandler()
-//{
-//   static_assert(std::is_same<i2c_type, quan::stm32::i2c3>::value,"incorrect port irq");
-//   uint32_t const sr1 = i2c_type::get()->sr1.get();
-//   i2c_type::get()->sr1.set(sr1 & 0xFF); 
-//   //i2c_port::i2c_errno = i2c_port::errno_t::i2c_err_handler;
-//}

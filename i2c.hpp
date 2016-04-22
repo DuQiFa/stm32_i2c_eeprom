@@ -5,6 +5,19 @@ extern "C" void DMA1_Stream4_IRQHandler() __attribute__ ( (interrupt ("IRQ")));
 extern "C" void I2C3_EV_IRQHandler() __attribute__ ((interrupt ("IRQ")));
 extern "C" void I2C3_ER_IRQHandler() __attribute__ ((interrupt ("IRQ")));
 
+/*
+   --- plug in arch per bus address ---
+   * Acquire the bus and install plugin
+   * do work
+   * remove plugin and release bus
+    Plugin part is the irq and dma functions
+
+    add fun to release bus
+    to use bus check busy first
+    recored last write time to eeprom
+    and use that to see if it is ok to read ( write takes 5 ms)
+*/
+
 struct i2c{
 
    static void init();
