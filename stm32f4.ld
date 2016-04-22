@@ -28,7 +28,7 @@ MEMORY
    flash(a)          : org = 0x08004000, len = 32K 
    rom (rx)          : org = 0x0800C000, len = 976K
    ram (xrw)         : org = 0x10000000, len = 64K
-   /* ram1 (xrw)     : org = 0x20000000, len = 128K */
+   ram1 (xrw)        : org = 0x20000000, len = 128K 
 }
 
 SECTIONS
@@ -108,7 +108,7 @@ SECTIONS
 
       . = ALIGN(4);
       _edata = .; 
-   }>ram
+   }>ram1
 
    . = ALIGN(4);
    .bss :
@@ -121,7 +121,7 @@ SECTIONS
       . = ALIGN(4);
       _ebss = .; 
       __bss_end__ = _ebss;
-   }>ram
+   }>ram1
 
    .check_heap (NOLOAD) :
    { 
@@ -130,7 +130,7 @@ SECTIONS
       . = . + _HeapSize;
       . = ALIGN(4);
       _HEAP_MAX = .;
-   }>ram
+   }>ram1
 
    .check_stack (NOLOAD) :
    {
@@ -139,7 +139,7 @@ SECTIONS
       . = ALIGN(4);
 
       _estack = ORIGIN(ram) + LENGTH(ram); 
-   }>ram
+   }>ram1
   
    /DISCARD/ :
    {

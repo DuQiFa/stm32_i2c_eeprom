@@ -30,7 +30,7 @@ namespace {
 
    void setup_busy_wait()
    {
-      i2c::init();
+      //i2c::init();
    }
 }
 
@@ -38,11 +38,11 @@ bool eeprom_busy_wait_test()
 {
    setup_busy_wait();
 
-   char data_out[] = {"qwertyu"}; // the data to write
+  // char data_out[] = {"qwertyu"}; // the data to write
 
-   if ( eeprom_write(5U,(uint8_t const*)data_out,8) ){
+  // if ( eeprom_write(5U,(uint8_t const*)data_out,8) ){
 
-      write_delay();  // wait for eeprom write to complete
+  //    write_delay();  // wait for eeprom write to complete
 
       // put some data here to check it is being overwritten
       char data_in[8] = {"-------"};
@@ -68,10 +68,10 @@ bool eeprom_busy_wait_test()
       }
       return result;
 
-   }else{
-      serial_port::write("eeprom write failed\n");
-      return false;
-   }
+//   }else{
+//      serial_port::write("eeprom write failed\n");
+//      return false;
+//   }
 
    return true;
 }
@@ -201,13 +201,8 @@ followed by read command
             return error("no rxne");
          }
       }
-      if(event(i2c::get_stop,true,ms{200U})){
-         serial_port::write("data read ok\n");
-         return true;
-      }else{
-         error("couldnt set stop");
-         return false;
-      }
+      serial_port::write("data read ok\n");
+      return true;
    }
 
    bool eeprom_write( uint16_t address, uint8_t const * data, uint32_t len)
@@ -220,14 +215,10 @@ followed by read command
 
       if (event(i2c::get_sr1_btf,true,ms{200U})){
          i2c::set_stop(true);
-      }else{
-         return error("no btf");
-      }
-      if(event(i2c::get_stop,true,ms{200U})){
          serial_port::write("data written ok\n");
          return true;
       }else{
-         return error("data write failed");
+         return error("no btf");
       }
    }
 }

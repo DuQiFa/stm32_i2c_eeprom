@@ -11,7 +11,7 @@ struct sp_info{
 };
 
 typedef quan::stm32::serial_port<
-   sp_info::usart,100,100,sp_info::txo_pin,sp_info::rxi_pin
+   sp_info::usart,1000,1000,sp_info::txo_pin,sp_info::rxi_pin
 > serial_port;
 
 

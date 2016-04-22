@@ -6,7 +6,9 @@
 */
 
 #include <quan/stm32/millis.hpp>
+#include "serial_port.hpp"
 #include "led.hpp"
+#include "i2c.hpp"
 
 extern "C" void setup();
 
@@ -20,10 +22,14 @@ int main()
 // choose function to use
 
    eeprom_irq_test();
+
+  // i2c::init();
    eeprom_busy_wait_test();
 
    // blink forever to check we havent crashed...
    auto elapsed = quan::stm32::millis();
+   while ( (quan::stm32::millis() - elapsed) <  quan::time_<uint32_t>::ms{5000U}){;}
+   serial_port::write("into blink loop\n");
    for (;;) {
       auto const now = quan::stm32::millis();
       if ( (now - elapsed) >= quan::time_<uint32_t>::ms{1000U}){

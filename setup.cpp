@@ -18,7 +18,7 @@ namespace {
    void setup_serial_port()
    {
     serial_port::init();
-    
+    serial_port::set_baudrate<115200,true>();
     serial_port::set_irq_priority(interrupt_priority::serial_port);
    }
 }

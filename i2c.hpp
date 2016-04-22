@@ -14,7 +14,10 @@ struct i2c{
    static void enable_dma_stream(bool b);
    static void set_dma_tx_buffer(uint8_t const* data, uint16_t numbytes);
    static void clear_dma_stream_flags();
+   static void clear_addr();
    static void set_stop(bool b);
+   static uint16_t get_sr1();
+   static uint16_t get_sr2();
    static bool get_sr2_msl();
    static bool get_sr1_btf() ;
    static bool get_sr1_txe() ;

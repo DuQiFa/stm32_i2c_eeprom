@@ -86,14 +86,24 @@ void i2c::init()
    bool i2c::get_sr1_sb() {constexpr uint8_t sr1_sb = 0;return i2c_type::get()->sr1.bb_getbit<sr1_sb>();}
    bool i2c::get_sr1_rxne() {constexpr uint8_t sr1_rxne = 6;return i2c_type::get()->sr1.bb_getbit<sr1_rxne>();}
    void i2c::enable_dma_bit(bool b){constexpr uint8_t cr2_dmaen = 11; i2c_type::get()->cr2.bb_putbit<cr2_dmaen>(b);}
+   void i2c::clear_addr() { constexpr uint8_t sr1_addr = 1; i2c_type::get()->sr1.bb_clearbit<sr1_addr>();}
 
    void i2c::enable_dma_stream(bool b)
    {
       if (b){
-         DMA1_Stream4->CR |= (1 << 0);
+         DMA1_Stream4->CR |= (1U << 0U); // (EN)
       } else {
-         DMA1_Stream4->CR &= ~(1 << 0);
+         DMA1_Stream4->CR &= ~(1U << 0U); // (EN)
       }
+   }
+
+   uint16_t i2c::get_sr1()
+   {
+     return i2c_type::get()->sr1.get();
+   }
+   uint16_t i2c::get_sr2()
+   {
+     return i2c_type::get()->sr2.get();
    }
 
    void i2c::set_dma_tx_buffer(uint8_t const* data, uint16_t numbytes)
@@ -104,7 +114,8 @@ void i2c::init()
 
    void i2c::clear_dma_stream_flags()
    {
-       DMA1->HIFCR |= (0b111101 << 0) ; // clear flags for Dma1 Stream 4
+       DMA1->HIFCR |= (0b111101 << 0U) ; // clear flags for Dma1 Stream 4
+       DMA1->HIFCR &= ~(0b111101 << 0U) ; // clear flags for Dma1 Stream 4
    }
 // 
 //bool i2c::master_mode_selected()

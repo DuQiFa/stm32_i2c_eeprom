@@ -2,8 +2,11 @@
 #include <stm32f4xx.h>
 #include <quan/stm32/i2c/typedefs.hpp>
 #include <quan/stm32/i2c/detail/get_irq_number.hpp>
+#include <quan/stm32/millis.hpp>
 #include "serial_port.hpp"
 #include "i2c.hpp"
+#include "led.hpp"
+#include <quan/conversion/itoa.hpp>
 
 /*
    --- plug in arch per bus address ---
@@ -44,7 +47,7 @@ namespace{
 
    bool bus_taken_token = false;
 
-   // if bus not busy then acquire some token representing the bus
+   // if bus not active then acquire some token representing the bus
    bool get_i2c_bus()
    {
       if (bus_taken_token ){
@@ -73,6 +76,7 @@ namespace{
       // wait till busy() return false
       static bool setup(uint8_t device_address,uint16_t data_address, uint8_t const* data, uint16_t len)
       {
+         setup_eeprom_irq();
          // check eeprom address < max
          // check data ptr not null
          // check len not 0
@@ -83,47 +87,86 @@ namespace{
             m_data_address[0] = static_cast<uint8_t>((data_address & 0xFF00) >> 8);
             m_data_address[1] = static_cast<uint8_t>(data_address & 0xFF);
             m_device_address = device_address;
-            m_busy_flag = true;
+            m_active_flag = true;
             setup_dma();
             i2c_set_error_handler(error_irq_handler);
             i2c_set_event_handler(sb1_irq_handler);
-
+            //serial_port::write("eeprom irq was setup\n");
             // start the process..
             i2c::enable_event_interrupts(true);
             i2c::set_start(true);
+            
             return true;
          }else{
+            panic("couldnt get bus");
             return false;
          }
+         
       }
-
-      static bool busy(){ return m_busy_flag;}
+      // this may not be active but bus still busy
+      // check for i2c_is_busy();
+      static bool active(){ return m_active_flag ;}
 
   private:
-      // Start condition generated event .
+
+      
+      // Start condition generated event . (EV5)
       // Clear by reading sr1 and
       // then writing dr with address of i2c device
       static void sb1_irq_handler()
       {
-         i2c_set_event_handler(dev_addr1_handler);
-         (void)i2c::get_sr1_sb();
+        // serial_port::write("sb\n");
+         uint16_t sr1 = i2c::get_sr1();
+         constexpr uint16_t sb = quan::bit<uint16_t>(0);
+         if ((sr1 & sb) == 0U){
+           led::on();
+           serial_port::write("!sb\n");
+         }
          i2c::send_address(m_device_address); 
+         i2c_set_event_handler(dev_addr1_handler);
       }
 
-      // address has been sent event.
-      // Clear by reading  SR1 followed by reading SR2.
-      // Setup dma to transfer the start address in eeprom to write to
+      // device address sent event. EV6
+      // Clear by reading SR1 followed by reading SR2.
       static void dev_addr1_handler()
       {
-         i2c::enable_event_interrupts(false); // dont want events during transfer
-         i2c_set_dma_handler(dma_data_address_handler);
-         i2c::set_dma_tx_buffer(m_data_address, 2); // set up dma on the 2 eeprom address bytes
-         i2c::enable_dma_bit(true);
-         i2c::clear_dma_stream_flags();
-         (void) i2c::get_sr1_addr();
-         (void) i2c::get_sr2_msl();
-         i2c::enable_dma_stream(true); // start dma
+         uint16_t sr1 = i2c::get_sr1();
+         constexpr uint16_t addr = quan::bit<uint16_t>(1);
+         if ((sr1 & addr) == 0U){
+            led::on();
+            serial_port::write("!ad\n");
+         }
+         (void) i2c::get_sr2();
+         i2c::enable_buffer_interrupts(true);
+         i2c::send_data(m_data_address[0]);
+         i2c_set_event_handler(data_addr_lo_handler);
       }
+      
+      static void data_addr_lo_handler()
+      {
+          ///led::on();
+          i2c::send_data(m_data_address[1]);
+          i2c_set_event_handler(dma_data_address_handler);
+         
+      }
+
+      
+//      static void  dma_start_handler()
+//      {
+//        // led::on();
+//         if (!i2c::get_sr1_txe()){
+//            
+//            serial_port::write("!txe\n");
+//         }
+//         i2c::enable_event_interrupts(false); // dont want events during transfer
+//
+//         i2c_set_dma_handler(dma_data_address_handler);
+//         i2c::set_dma_tx_buffer(m_data_address, 2); // set up dma on the 2 eeprom address bytes
+//         i2c::enable_dma_bit(true);
+//         i2c::clear_dma_stream_flags();
+//         i2c::enable_dma_stream(true); // start dma
+//         
+//      }
 
       // dma transfer complete event at
       // end of 2 byte eeprom data address send.
@@ -132,8 +175,15 @@ namespace{
       // set up a new dma handler for this
       static void dma_data_address_handler()
       {
+//#########################
+//#error not getting here 
+         // led::on();
+         // serial_port::write("dm\n");
+          i2c::enable_event_interrupts(false);
+          i2c::enable_buffer_interrupts(false);
           i2c::enable_dma_stream(false);
           i2c_set_dma_handler(dma_data_end_handler);
+          i2c::enable_dma_bit(true);
           i2c::set_dma_tx_buffer(m_p_data,m_data_length);
           i2c::clear_dma_stream_flags();
           i2c::enable_dma_stream(true);
@@ -143,7 +193,10 @@ namespace{
       // disable dma and catch btf
       static void dma_data_end_handler()
       {
+          led::on();
+         // serial_port::write("dx\n");
           i2c::enable_dma_stream(false);
+          i2c::clear_dma_stream_flags();
           i2c::enable_dma_bit(false);
           i2c_set_dma_handler(default_i2c3_dma_handler);
           i2c_set_event_handler(data_end_handler);
@@ -152,16 +205,12 @@ namespace{
       // btf at end of data transfer
       static void data_end_handler()
       {
-          i2c_set_event_handler(data_stop_handler);
+         // serial_port::write("de\n");
+          i2c::enable_event_interrupts(false); 
           i2c::set_stop(true);
+          teardown();   
       }
 
-      // stop at end of data transfer
-      static void data_stop_handler()
-      {
-          teardown();
-      }
-      
       static void error_irq_handler()
       {
          panic ("i2c error");
@@ -177,23 +226,23 @@ namespace{
          DMA_Stream_TypeDef* dma_stream = DMA1_Stream4;
          constexpr uint32_t  dma_channel = 3;
          constexpr uint32_t  dma_priority = 0b00; // low
-         constexpr uint8_t   msize = 0b00; // 8 bit mem loc
-         constexpr uint8_t   psize = 0b00; // 8 bit periph loc 
-         dma_stream->CR = (dma_stream->CR & ~(0b111 << 25)) | ( dma_channel << 25); //(CHSEL) select channel
-         dma_stream->CR = (dma_stream->CR & ~(0b11 << 16)) | (dma_priority << 16U); // (PL) priority
-         dma_stream->CR = (dma_stream->CR & ~(0b11 << 13)) | (msize << 13); // (MSIZE) 8 bit memory transfer
-         dma_stream->CR = (dma_stream->CR & ~(0b11 << 11)) | (psize << 11); // (PSIZE) 16 bit transfer
+         constexpr uint32_t  msize = 0b00; // 8 bit mem loc
+         constexpr uint32_t  psize = 0b00; // 8 bit periph loc 
+         dma_stream->CR = (dma_stream->CR & ~(0b111 << 25U)) | ( dma_channel << 25U); //(CHSEL) select channel
+         dma_stream->CR = (dma_stream->CR & ~(0b11 << 16U)) | (dma_priority << 16U); // (PL) priority
+         dma_stream->CR = (dma_stream->CR & ~(0b11 << 13U)) | (msize << 13U); // (MSIZE) 8 bit memory transfer
+         dma_stream->CR = (dma_stream->CR & ~(0b11 << 11U)) | (psize << 11U); // (PSIZE) 16 bit transfer
          dma_stream->CR |= (1 << 10);// (MINC)
          dma_stream->CR &= ~(1 << 9);// (PINC)
-         dma_stream->CR = (dma_stream->CR & ~(0b11 << 6)) | (0b01 << 6) ; // (DIR ) memory to peripheral
+         dma_stream->CR = (dma_stream->CR & ~(0b11 << 6U)) | (0b01 << 6U) ; // (DIR ) memory to peripheral
          dma_stream->CR |= ( 1 << 4) ; // (TCIE)
          dma_stream->PAR = (uint32_t)&I2C3->DR;  // periph addr
          NVIC_SetPriority(DMA1_Stream4_IRQn,15);  // low prio
          NVIC_EnableIRQ(DMA1_Stream4_IRQn);
 
 //       to get stream running
-//         dma_stream->M0AR = (uint32_t)0; // buffer address
-//         dma_stream->NDTR = 0;           // num data
+//         dma_stream->M0AR = (uint32_t)x; // buffer address
+//         dma_stream->NDTR = j;           // num data
 //         DMA1->HIFCR |= (0b111101 << 0) ; // clear flags for Dma1 Stream 4
 //         constexpr uint8_t cr2_dmaen = 11;
 //         i2c_type::get()->cr2.bb_setbit<cr2_dmaen>(); set dma bit in i2c3
@@ -203,7 +252,7 @@ namespace{
       static void teardown()
       {
          i2c_set_default_handlers();
-         m_busy_flag = false;
+         m_active_flag = false;
          release_i2c_bus();
       }
 
@@ -211,14 +260,16 @@ namespace{
       static uint16_t m_data_length;
       static uint8_t  m_data_address[2];
       static uint8_t  m_device_address;
-      static bool     m_busy_flag;
+      static bool     m_active_flag;
    };
 
    uint8_t const * i2c_eeprom_writer::m_p_data = nullptr;
    uint16_t i2c_eeprom_writer::m_data_length = 0U;
    uint8_t  i2c_eeprom_writer::m_data_address[] = {0U,0U};
    uint8_t  i2c_eeprom_writer::m_device_address = 0U;
-   bool     i2c_eeprom_writer::m_busy_flag = false;
+   bool     i2c_eeprom_writer::m_active_flag = false;
+
+   char data_out[] = {"Xndy123"};  // the data to write
    
 } // ~namespace
 
@@ -228,11 +279,39 @@ namespace{
 bool eeprom_irq_test()
 {
     static constexpr uint8_t eeprom_addr = 0b10100000;
-    char data_out[] = {"andy123"}; // the data to write
+
 
     i2c_eeprom_writer::setup( eeprom_addr ,5U,(uint8_t const*)data_out,8);
 
-    // wait
+    auto now = quan::stm32::millis();
+    typedef decltype(now) ms;
+   // serial_port::write("testing write irq \n");
+    while(i2c_eeprom_writer::active() && ((quan::stm32::millis() - now) < ms{500U})){;}
+ 
+    if (i2c_eeprom_writer::active()){
+         panic("looks like irq write hung");
+
+         uint32_t const dma_flags = DMA1->HISR & 0x3F;
+
+         char buffer [20];
+         quan::itoasc(dma_flags,buffer,16);
+         serial_port::write("dma flags = 0x");
+         serial_port::write(buffer);
+         serial_port::write("\n");
+
+
+         uint32_t ndata = DMA1_Stream4->NDTR;
+         quan::itoasc(ndata,buffer,10);
+         serial_port::write("ndtr = ");
+         serial_port::write(buffer);
+         serial_port::write("\n");
+         
+         return false;
+    }
+    
+    now = quan::stm32::millis();
+
+    while( (quan::stm32::millis() - now) < ms{6U}){;}
     return true;
 }
 
@@ -240,12 +319,14 @@ namespace {
 
    void default_i2c3_event_irq_handler()
    {
+       panic("i2c event def called");
       // shouldnt be called
       // clear irq flags
       // print panic message
    }
    void default_i2c3_error_irq_handler()
    {
+      panic("i2c error def called");
       // clear error flags
       // reset i2c3 interface
       // print panic message
@@ -253,13 +334,14 @@ namespace {
 
    void default_i2c3_dma_handler()
    {
+       panic("i2c dma def called");
        // shouldnt be called
        // clear flags and print panic message
    }
 
-   void (*pfn_i2c3_event_irq_handler)() = default_i2c3_event_irq_handler;
-   void (*pfn_i2c3_error_irq_handler)() = default_i2c3_error_irq_handler;
-   void (*pfn_i2c3_dma_handler)() = default_i2c3_dma_handler;
+   void (* volatile pfn_i2c3_event_irq_handler)() = default_i2c3_event_irq_handler;
+   void (* volatile pfn_i2c3_error_irq_handler)() = default_i2c3_error_irq_handler;
+   void (* volatile pfn_i2c3_dma_handler)() = default_i2c3_dma_handler;
 
    void i2c_set_dma_handler( void(*pfn_event)())
    {
