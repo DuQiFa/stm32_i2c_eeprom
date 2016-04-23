@@ -17,6 +17,7 @@ namespace{
       // (call i2c::is_busy() first)
       static bool setup(uint8_t device_address,uint16_t data_address, uint8_t const* data, uint16_t len)
       {
+         // todo
          // check eeprom address < max
          // check data ptr not null
          // check len not 0
@@ -33,7 +34,8 @@ namespace{
 
             i2c::enable_event_interrupts(true);
             i2c::enable_dma_bit(true);
-            i2c::request_generate_start();
+
+            i2c::request_start_condition();
 
             return true;
          }else{
@@ -56,7 +58,8 @@ namespace{
 
       // device address sent event. EV6
       // Clear by reading SR1 followed by reading SR2.
-      // send first bayte of data address
+      // then send first byte of data address
+      // want txe and point to next handler
       static void dev_addr1_handler()
       {
          i2c::get_sr1();
@@ -67,13 +70,18 @@ namespace{
       }
       // txe on first data address
       // send second byte of data address
+      // update to next handler
       static void data_addr_lo_handler()
       {
           i2c::send_data(m_data_address[1]);
           i2c::set_event_handler(dma_data_address_handler);
       }
 
-      // send the data using dma
+      // txe on 2nd data address
+      // disble i2c events
+      // do final dma setup
+      // and point dma handler to end of dma handler
+      // start sending the data using dma
       static void dma_data_address_handler()
       {
           i2c::enable_event_interrupts(false);
@@ -86,20 +94,23 @@ namespace{
       }
 
       // dma handler called when last byte of data sent
+      // disable dma and  enable i2c event irq's to get btf
+      // update the event handler
       static void dma_data_end_handler()
       {
          i2c::enable_dma_stream(false);
          i2c::enable_dma_bit(false);
-         i2c::clear_dma_tx_stream_tcif();
+         i2c::clear_dma_tx_stream_tcif(); 
          i2c::enable_event_interrupts(true);
          i2c::set_event_handler(stop1_handler);  
       }
 
       // btf at end of last byte transfer
+      // request stop condition and clean up
       static void stop1_handler()
       {
          i2c::enable_event_interrupts(false);
-         i2c::request_generate_stop();
+         i2c::request_stop_condition();
          i2c::set_default_handlers();
          i2c::release_bus();
       }

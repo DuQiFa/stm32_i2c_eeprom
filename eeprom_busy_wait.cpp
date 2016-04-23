@@ -168,7 +168,7 @@ namespace {
       check_i2c_errors();
 
       if (event(i2c::is_busy,false,ms{200U})){
-         i2c::request_generate_start();
+         i2c::request_start_condition();
       }else {
          return error("i2c busy forever");
       }
@@ -217,7 +217,7 @@ followed by read command
       // can send "restart"
        check_i2c_errors();
       if ( event(i2c::get_sr1_btf,true,ms{200U})){
-         i2c::request_generate_start();
+         i2c::request_start_condition();
       }else{
          return error("no btf");
       }
@@ -243,7 +243,7 @@ followed by read command
          if ( event(i2c::get_sr1_rxne,true,ms{200U})){
             if ( bytes_left == 1){
                i2c::enable_ack_bit(false);
-               i2c::request_generate_stop();
+               i2c::request_stop_condition();
             }
             data[i] = i2c::receive_data();
              
@@ -265,7 +265,7 @@ followed by read command
       if (!eeprom_send_data(data,len)){return false;}
       check_i2c_errors();
       if (event(i2c::get_sr1_btf,true,ms{200U})){
-         i2c::request_generate_stop();
+         i2c::request_stop_condition();
          serial_port::write("data written ok\n");
          return true;
       }else{

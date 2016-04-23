@@ -35,8 +35,8 @@ struct i2c{
    static void set_error_handler( void(*pfn_event)());
    static void set_dma_tx_handler( void(*pfn_event)());
 
-   static void request_generate_start();
-   static void request_generate_stop();
+   static void request_start_condition();
+   static void request_stop_condition();
 
    static void enable_dma_bit(bool b);
    static void enable_ack_bit(bool b);

@@ -160,7 +160,7 @@ bool i2c::is_busy()
    return i2c_type::get()->sr2.bb_getbit<i2c_sr2_busy_bit>();
 }
 
-void i2c::request_generate_start()
+void i2c::request_start_condition()
 {
    constexpr uint8_t cr1_start_bit = 8;
    i2c_type::get()->cr1.bb_setbit<cr1_start_bit>();
@@ -178,7 +178,7 @@ void i2c::enable_buffer_interrupts(bool b)
    i2c_type::get()->cr2.bb_putbit<cr2_itbufen_bit>(b);
 }
 
-void i2c::request_generate_stop()
+void i2c::request_stop_condition()
 {
   constexpr uint8_t cr1_stop_bit =9;
   i2c_type::get()->cr1.bb_setbit<cr1_stop_bit>();
