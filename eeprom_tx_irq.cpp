@@ -29,8 +29,8 @@ namespace{
             m_data_address[1] = static_cast<uint8_t>(data_address & 0xFF);
             m_device_address = device_address;
            
-            i2c::set_error_handler(error_irq_handler);
-            i2c::set_event_handler(sb1_irq_handler);
+            i2c::set_error_handler(on_error);
+            i2c::set_event_handler(on_start_sent);
 
             i2c::enable_event_interrupts(true);
             i2c::enable_dma_bit(true);
@@ -49,33 +49,33 @@ namespace{
       // Start condition generated event . (EV5)
       // Clear by reading sr1 and
       // then writing dr with address of i2c device
-      static void sb1_irq_handler()
+      static void on_start_sent()
       {
          i2c::get_sr1();
          i2c::send_address(m_device_address); 
-         i2c::set_event_handler(dev_addr1_handler);
+         i2c::set_event_handler(on_device_address_sent);
       }
 
       // device address sent event. EV6
       // Clear by reading SR1 followed by reading SR2.
       // then send first byte of data address
       // want txe and point to next handler
-      static void dev_addr1_handler()
+      static void on_device_address_sent()
       {
          i2c::get_sr1();
          i2c::get_sr2();
          i2c::send_data(m_data_address[0]);
          i2c::enable_buffer_interrupts(true);
-         i2c::set_event_handler(data_addr_lo_handler);
+         i2c::set_event_handler(on_data_address_hi_sent);
       }
 
       // txe on first data address
       // send second byte of data address
       // update to next handler
-      static void data_addr_lo_handler()
+      static void on_data_address_hi_sent()
       {
           i2c::send_data(m_data_address[1]);
-          i2c::set_event_handler(dma_data_address_handler);
+          i2c::set_event_handler(on_data_address_lo_sent);
       }
 
       // txe on 2nd data address
@@ -83,12 +83,12 @@ namespace{
       // do final dma setup
       // and point dma handler to end of dma handler
       // start sending the data using dma
-      static void dma_data_address_handler()
+      static void on_data_address_lo_sent()
       {
           i2c::enable_event_interrupts(false);
           i2c::enable_buffer_interrupts(false);
           i2c::enable_dma_stream(false);
-          i2c::set_dma_tx_handler(dma_data_end_handler);
+          i2c::set_dma_tx_handler(on_dma_transfer_complete);
           i2c::set_dma_tx_buffer(m_p_data,m_data_length);
           i2c::clear_dma_tx_stream_flags();
           i2c::enable_dma_stream(true);
@@ -97,18 +97,18 @@ namespace{
       // dma handler called when last byte of dma data sent
       // disable dma and enable i2c event irq's to get btf
       // update the event handler
-      static void dma_data_end_handler()
+      static void on_dma_transfer_complete()
       {
          i2c::enable_dma_stream(false);
          i2c::enable_dma_bit(false);
          i2c::clear_dma_tx_stream_tcif(); 
          i2c::enable_event_interrupts(true);
-         i2c::set_event_handler(stop1_handler);  
+         i2c::set_event_handler(on_last_byte_transfer_complete);  
       }
 
       // btf at end of last byte transfer
       // request stop condition and clean up
-      static void stop1_handler()
+      static void on_last_byte_transfer_complete()
       {
          i2c::enable_event_interrupts(false);
          i2c::request_stop_condition();
@@ -116,7 +116,7 @@ namespace{
          i2c::release_bus();
       }
 
-      static void error_irq_handler()
+      static void on_error()
       {
          panic ("i2c error");
       }
