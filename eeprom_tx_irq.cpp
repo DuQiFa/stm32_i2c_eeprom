@@ -14,7 +14,7 @@ namespace{
 
       // return true if setup ok
       // else leave in good state and return false
-      // wait till busy() return false
+      // (call i2c::is_busy() first)
       static bool setup(uint8_t device_address,uint16_t data_address, uint8_t const* data, uint16_t len)
       {
          // check eeprom address < max
@@ -28,13 +28,13 @@ namespace{
             m_data_address[1] = static_cast<uint8_t>(data_address & 0xFF);
             m_device_address = device_address;
            
-          //  setup_tx_dma();
             i2c::set_error_handler(error_irq_handler);
             i2c::set_event_handler(sb1_irq_handler);
-            // start the process..
+
             i2c::enable_event_interrupts(true);
             i2c::enable_dma_bit(true);
-            i2c::set_start(true);
+            i2c::request_generate_start();
+
             return true;
          }else{
             panic("couldnt get bus");
@@ -79,9 +79,9 @@ namespace{
           i2c::enable_event_interrupts(false);
           i2c::enable_buffer_interrupts(false);
           i2c::enable_dma_stream(false);
-          i2c::set_dma_handler(dma_data_end_handler);
+          i2c::set_dma_tx_handler(dma_data_end_handler);
           i2c::set_dma_tx_buffer(m_p_data,m_data_length);
-          i2c::clear_dma_stream_flags();
+          i2c::clear_dma_tx_stream_flags();
           i2c::enable_dma_stream(true);
       }
 
@@ -90,7 +90,7 @@ namespace{
       {
          i2c::enable_dma_stream(false);
          i2c::enable_dma_bit(false);
-         i2c::clear_dma_stream_tcif();
+         i2c::clear_dma_tx_stream_tcif();
          i2c::enable_event_interrupts(true);
          i2c::set_event_handler(stop1_handler);  
       }
@@ -99,7 +99,7 @@ namespace{
       static void stop1_handler()
       {
          i2c::enable_event_interrupts(false);
-         i2c::set_stop(true);
+         i2c::request_generate_stop();
          i2c::set_default_handlers();
          i2c::release_bus();
       }

@@ -25,7 +25,7 @@ namespace {
 volatile bool i2c::m_bus_taken_token = false;
 void (* volatile i2c::pfn_event_handler)()  = i2c::default_event_handler;
 void (* volatile i2c::pfn_error_handler)()  = i2c::default_error_handler;
-void (* volatile i2c::pfn_dma_handler)()    = i2c::default_dma_handler;
+void (* volatile i2c::pfn_dma_handler)()    = i2c::default_dma_tx_handler;
 
 bool i2c::get_bus()
 {
@@ -103,7 +103,7 @@ bool i2c::get_sr1_addr() {constexpr uint8_t sr1_addr = 1;return i2c_type::get()-
 bool i2c::get_sr1_sb() {constexpr uint8_t sr1_sb = 0;return i2c_type::get()->sr1.bb_getbit<sr1_sb>();}
 bool i2c::get_sr1_rxne() {constexpr uint8_t sr1_rxne = 6;return i2c_type::get()->sr1.bb_getbit<sr1_rxne>();}
 void i2c::enable_dma_bit(bool b){constexpr uint8_t cr2_dmaen = 11; i2c_type::get()->cr2.bb_putbit<cr2_dmaen>(b);}
-void i2c::clear_addr() { constexpr uint8_t sr1_addr = 1; i2c_type::get()->sr1.bb_clearbit<sr1_addr>();}
+//void i2c::clera_addr_bit() { constexpr uint8_t sr1_addr = 1; i2c_type::get()->sr1.bb_clearbit<sr1_addr>();}
 
 void i2c::enable_dma_stream(bool b)
 {
@@ -113,7 +113,7 @@ void i2c::enable_dma_stream(bool b)
       DMA1_Stream4->CR &= ~(1U << 0U); // (EN)
    }
 }
-void i2c::clear_dma_stream_tcif()
+void i2c::clear_dma_tx_stream_tcif()
 {
     DMA1->HIFCR |= (1 << 5) ; // (TCIF)
 }
@@ -133,7 +133,7 @@ void i2c::set_dma_tx_buffer(uint8_t const* data, uint16_t numbytes)
    DMA1_Stream4->NDTR = numbytes;           // num data
 }
 
-void i2c::clear_dma_stream_flags()
+void i2c::clear_dma_tx_stream_flags()
 {
     DMA1->HIFCR |= (0b111101 << 0U) ; // clear flags for Dma1 Stream 4
   //  DMA1->HIFCR &= ~(0b111101 << 0U) ; // clear flags for Dma1 Stream 4
@@ -160,10 +160,10 @@ bool i2c::is_busy()
    return i2c_type::get()->sr2.bb_getbit<i2c_sr2_busy_bit>();
 }
 
-void i2c::set_start(bool b)
+void i2c::request_generate_start()
 {
    constexpr uint8_t cr1_start_bit = 8;
-   i2c_type::get()->cr1.bb_putbit<cr1_start_bit>(b);
+   i2c_type::get()->cr1.bb_setbit<cr1_start_bit>();
 }
 
 void i2c::enable_event_interrupts(bool b)
@@ -178,10 +178,10 @@ void i2c::enable_buffer_interrupts(bool b)
    i2c_type::get()->cr2.bb_putbit<cr2_itbufen_bit>(b);
 }
 
-void i2c::set_stop(bool b)
+void i2c::request_generate_stop()
 {
   constexpr uint8_t cr1_stop_bit =9;
-  i2c_type::get()->cr1.bb_putbit<cr1_stop_bit>(b);
+  i2c_type::get()->cr1.bb_setbit<cr1_stop_bit>();
 }
 
 bool i2c::get_sr1_stop()
@@ -217,7 +217,7 @@ void i2c::setup_tx_dma()
 }
 
 
-void i2c::set_ack(bool b)
+void i2c::enable_ack_bit(bool b)
 {
    uint8_t constexpr  i2c_cr1_ack_bit = 10;
    i2c_type::get()->cr1.bb_putbit<i2c_cr1_ack_bit>(b);
@@ -238,12 +238,12 @@ void i2c::default_error_handler()
    panic("i2c error def called");
 }
 
-void i2c::default_dma_handler()
+void i2c::default_dma_tx_handler()
 {
     panic("i2c dma def called");
 }
 
-void i2c::set_dma_handler( void(*pfn_event)())
+void i2c::set_dma_tx_handler( void(*pfn_event)())
 {
    pfn_dma_handler = pfn_event;
 }
@@ -280,5 +280,5 @@ void i2c::set_default_handlers()
 {
    pfn_event_handler = default_event_handler;
    pfn_error_handler = default_error_handler;
-   pfn_dma_handler   = default_dma_handler;
+   pfn_dma_handler   = default_dma_tx_handler;
 }

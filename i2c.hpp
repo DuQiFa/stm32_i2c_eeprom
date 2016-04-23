@@ -28,25 +28,28 @@ struct i2c{
 
    static void default_event_handler();
    static void default_error_handler();
-   static void default_dma_handler();
+   static void default_dma_tx_handler();
 
    static void set_default_handlers();
    static void set_event_handler( void(*pfn_event)());
    static void set_error_handler( void(*pfn_event)());
-   static void set_dma_handler( void(*pfn_event)());
+   static void set_dma_tx_handler( void(*pfn_event)());
 
-   static void set_ack(bool b);
-   static void set_start(bool b);
+   static void request_generate_start();
+   static void request_generate_stop();
+
+   static void enable_dma_bit(bool b);
+   static void enable_ack_bit(bool b);
+
    static void enable_event_interrupts(bool b);
    static void enable_buffer_interrupts(bool b);
-   static void enable_dma_bit(bool b);
+   
    static void enable_dma_stream(bool b);
    static void set_dma_tx_buffer(uint8_t const* data, uint16_t numbytes);
-   static void clear_dma_stream_flags();
-   static void clear_dma_stream_tcif();
-   static void clear_addr();
-   static void set_stop(bool b);
-
+   static void clear_dma_tx_stream_flags();
+   static void clear_dma_tx_stream_tcif();
+   //static void clera_addr_bit();
+   
    static uint16_t get_sr1();
    static uint16_t get_sr2();
 
@@ -69,14 +72,15 @@ private:
    friend void ::I2C3_EV_IRQHandler() ;
    friend void ::I2C3_ER_IRQHandler();
    static void setup_tx_dma();
+
    static volatile bool m_bus_taken_token;
+   static void (* volatile pfn_event_handler)();
+   static void (* volatile pfn_error_handler)();
+   static void (* volatile pfn_dma_handler)();
+
    i2c() = delete;
    i2c(i2c const & ) = delete;
    i2c& operator = (i2c&) = delete;
-
-   static void (* volatile pfn_event_handler)();// = default_event_irq_handler;
-   static void (* volatile pfn_error_handler)() ;// = default_error_irq_handler;
-   static void (* volatile pfn_dma_handler)();// = default_dma_handler;
 
 };
 
