@@ -12,10 +12,10 @@ namespace{
 
    struct i2c_eeprom_writer{
 
-      // return true if setup ok
+      // return true if apply ok
       // else leave in good state and return false
       // (call i2c::is_busy() first)
-      static bool setup(uint8_t device_address,uint16_t data_address, uint8_t const* data, uint16_t len)
+      static bool apply(uint8_t device_address,uint16_t data_address, uint8_t const* data, uint16_t len)
       {
          // todo
          // check eeprom address < max
@@ -68,6 +68,7 @@ namespace{
          i2c::enable_buffer_interrupts(true);
          i2c::set_event_handler(data_addr_lo_handler);
       }
+
       // txe on first data address
       // send second byte of data address
       // update to next handler
@@ -93,8 +94,8 @@ namespace{
           i2c::enable_dma_stream(true);
       }
 
-      // dma handler called when last byte of data sent
-      // disable dma and  enable i2c event irq's to get btf
+      // dma handler called when last byte of dma data sent
+      // disable dma and enable i2c event irq's to get btf
       // update the event handler
       static void dma_data_end_handler()
       {
@@ -140,8 +141,10 @@ char data_out[] = {"healthy"};  // the data to write n.b in dma available memory
 bool eeprom_tx_irq_test()
 {
     static constexpr uint8_t eeprom_addr = 0b10100000;
-    i2c_eeprom_writer::setup( eeprom_addr ,5U,(uint8_t const*)data_out,8);
-
+    i2c_eeprom_writer::apply( eeprom_addr ,5U,(uint8_t const*)data_out,8);
+    
+    // at this point still busy
+    // 
     auto now = quan::stm32::millis();
     typedef decltype(now) ms;
     while(i2c::is_busy() && ((quan::stm32::millis() - now) < ms{500U})){;}
@@ -156,7 +159,6 @@ bool eeprom_tx_irq_test()
          serial_port::write("dma flags = 0x");
          serial_port::write(buffer);
          serial_port::write("\n");
-
 
          uint32_t ndata = DMA1_Stream4->NDTR;
          quan::itoasc(ndata,buffer,10);
