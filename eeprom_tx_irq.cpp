@@ -1,7 +1,7 @@
 
 #include <stm32f4xx.h>
 #include <quan/stm32/i2c/typedefs.hpp>
-#include <quan/stm32/i2c/detail/get_irq_number.hpp>
+//#include <quan/stm32/i2c/detail/get_irq_number.hpp>
 #include <quan/stm32/millis.hpp>
 #include "serial_port.hpp"
 #include "i2c.hpp"
@@ -65,7 +65,6 @@ namespace{
          i2c::get_sr1();
          i2c::get_sr2();
          i2c::send_data(m_data_address[0]);
-         i2c::enable_buffer_interrupts(true);
          i2c::set_event_handler(on_data_address_hi_sent);
       }
 
@@ -86,12 +85,11 @@ namespace{
       static void on_data_address_lo_sent()
       {
           i2c::enable_event_interrupts(false);
-          i2c::enable_buffer_interrupts(false);
-          i2c::enable_dma_stream(false);
+          i2c::enable_dma_tx_stream(false);
           i2c::set_dma_tx_handler(on_dma_transfer_complete);
           i2c::set_dma_tx_buffer(m_p_data,m_data_length);
           i2c::clear_dma_tx_stream_flags();
-          i2c::enable_dma_stream(true);
+          i2c::enable_dma_tx_stream(true);
       }
 
       // dma handler called when last byte of dma data sent
@@ -99,7 +97,7 @@ namespace{
       // update the event handler
       static void on_dma_transfer_complete()
       {
-         i2c::enable_dma_stream(false);
+         i2c::enable_dma_tx_stream(false);
          i2c::enable_dma_bit(false);
          i2c::clear_dma_tx_stream_tcif(); 
          i2c::enable_event_interrupts(true);
@@ -136,7 +134,7 @@ namespace{
 /*
    test function
 */
-char data_out[] = {"healthy"};  // the data to write n.b in dma available memory
+char data_out[] = {"WEALTHY"};  // the data to write n.b in dma available memory
 
 bool eeprom_tx_irq_test()
 {
@@ -168,8 +166,8 @@ bool eeprom_tx_irq_test()
          
          return false;
     }
-   // i2c::enable_dma_stream(false);
-    now = quan::stm32::millis();
-    while( (quan::stm32::millis() - now) < ms{6U}){;}
+
+    // do 6 ms delay here for now
+    serial_port::write("write completed\n");
     return true;
 }
