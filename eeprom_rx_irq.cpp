@@ -41,8 +41,14 @@ namespace{
             i2c::enable_event_interrupts(true);
             i2c::enable_buffer_interrupts(false);
             i2c::enable_ack_bit(true);
+            i2c::enable_dma_bit(true);
             i2c::enable_dma_last_bit(true);
+//
+            i2c::set_dma_rx_buffer(m_p_data,m_data_length);
+            i2c::clear_dma_rx_stream_flags();
 
+            i2c::set_dma_rx_handler(on_dma_transfer_complete);
+            i2c::enable_dma_rx_stream(true);
 
             i2c::request_start_condition();
 
@@ -114,13 +120,24 @@ namespace{
       {
           recorded_flags[5] = i2c::get_sr1();
           recorded_flags[5] |= (i2c::get_sr2() << 16U);
+          i2c::set_event_handler(on_rx);
+      }
+
+      static void on_rx()
+      {
+          led::on();
+          recorded_flags[6] = i2c::get_sr1();
+          recorded_flags[6] |= (i2c::get_sr2() << 16U);
+
           i2c::enable_event_interrupts(false);
-         // i2c::enable_ack_bit(true);
-          i2c::enable_dma_rx_stream(false);
-          i2c::set_dma_rx_buffer(m_p_data,m_data_length);
-          i2c::clear_dma_rx_stream_flags();
-          i2c::enable_dma_rx_stream(true);
-          i2c::set_dma_rx_handler(on_dma_transfer_complete);
+
+      }
+
+      static void on_rx1()
+      {
+
+          recorded_flags[7] = i2c::get_sr1();
+          recorded_flags[7] |= (i2c::get_sr2() << 16U);
       }
 
       // dma handler called when last byte of dma data recieved
@@ -128,7 +145,7 @@ namespace{
       // update the event handler
       static void on_dma_transfer_complete()
       {
-         led::on();
+        
          
          i2c::enable_dma_rx_stream(false);
          i2c::enable_dma_bit(false);
@@ -183,7 +200,7 @@ bool eeprom_rx_irq_test()
     if (i2c::is_busy()){
          panic("looks like irq read hung");
 
-         uint32_t const dma_flags = DMA1->LISR & 0x3F0000;
+         uint32_t const dma_flags = DMA1->LISR & 0x3D0000;
 
          char buffer [20];
          quan::itoasc(dma_flags,buffer,16);
@@ -201,7 +218,7 @@ bool eeprom_rx_irq_test()
     }
 
     serial_port::write("flags\n");
-    for ( uint32_t i = 0; i < 7; ++i){
+    for ( uint32_t i = 0; i < 8; ++i){
          char buf[100];
          sprintf(buf,"flags[%u] = 0x%x\n",
             static_cast<unsigned>(i), 

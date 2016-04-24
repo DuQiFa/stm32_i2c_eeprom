@@ -159,12 +159,12 @@ void i2c::set_dma_rx_buffer(uint8_t * data, uint16_t numbytes)
 
 void i2c::clear_dma_tx_stream_flags()
 {
-   DMA1->HIFCR |= (0b111101 << 0U) ; // clear flags for Dma1 Stream 4
+   DMA1->HIFCR |= (0b111101 << 0U) ; // clear flags for Dma1 Stream 4 
 }
 
 void i2c::clear_dma_rx_stream_flags()
 {
-   DMA1->LIFCR |= (0b111101 << 16U) ; // clear flags for Dma1 Stream 2
+   DMA1->LIFCR |= (0b111101 << 16U) ; // clear flags for Dma1 Stream 2 
 }
 
 void i2c::send_address(uint8_t data)
@@ -220,14 +220,16 @@ void i2c::request_stop_condition()
 
 bool i2c::get_sr1_stopf()
 {
-  constexpr uint8_t sr1_stopf_bit =9;
+  constexpr uint8_t sr1_stopf_bit =4;
   return i2c_type::get()->sr1.bb_getbit<sr1_stopf_bit>();
 }
 
 void i2c::setup_tx_dma()
 {
    // i2c3 tx on DMA1_Stream4.CH3
-   quan::stm32::rcc::get()->ahb1enr |= (1 << 21); // DMA stream 1
+   quan::stm32::rcc::get()->ahb1enr |= (1U << 21U); // DMA stream 1
+//   quan::stm32::rcc::get()->ahb1rstr |= (1U << 21U);
+//   quan::stm32::rcc::get()->ahb1rstr &= ~(1U << 21U);
    for ( uint8_t i = 0; i < 20; ++i){
       asm volatile ("nop" : : :);
    }
