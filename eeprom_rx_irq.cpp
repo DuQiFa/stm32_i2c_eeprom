@@ -3,19 +3,16 @@
 #include <cstring>
 #include <stdlib.h>
 #include <stdio.h>
-//#include <quan/stm32/i2c/typedefs.hpp>
-//#include <quan/stm32/i2c/detail/get_irq_number.hpp>
+
 #include <quan/stm32/millis.hpp>
+#include <quan/conversion/itoa.hpp>
 #include "serial_port.hpp"
 #include "i2c.hpp"
 #include "led.hpp"
-#include <quan/conversion/itoa.hpp>
 
 namespace{
 
    struct i2c_eeprom_reader{
-
-      
 
       // return true if apply ok
       // else leave in good state and return false
@@ -43,7 +40,7 @@ namespace{
             i2c::enable_ack_bit(true);
             i2c::enable_dma_bit(true);
             i2c::enable_dma_last_bit(true);
-//
+
             i2c::set_dma_rx_buffer(m_p_data,m_data_length);
             i2c::clear_dma_rx_stream_flags();
 
@@ -67,6 +64,7 @@ namespace{
       static void on_start_sent()
       {  // flags sr1.sb
          recorded_flags[0] = i2c::get_sr1();
+
          i2c::send_address(m_device_address); 
          i2c::set_event_handler(on_device_address_sent);
       }
@@ -78,6 +76,7 @@ namespace{
       {  // flags sr2.[tra:busy:msl] sr1.[addr:txe]
          recorded_flags[1] = i2c::get_sr1();
          recorded_flags[1] |= (i2c::get_sr2() << 16U);
+
          i2c::send_data(m_data_address[0]);
          i2c::set_event_handler(on_data_address_hi_sent);
       }
@@ -90,22 +89,22 @@ namespace{
          
           i2c::send_data(m_data_address[1]);
           i2c::request_start_condition();
-          i2c::set_event_handler(on_start2);
+          i2c::set_event_handler(on_data_address_lo_sent);
       }
 
       // btf on 2nd data address
-      // restar
-      static void on_start2()
+      // restart
+      static void on_data_address_lo_sent()
       {
          // flags sr2.[tra:busy:msl] sr1.[btf:txe]
          recorded_flags[3] = i2c::get_sr1();
          recorded_flags[3] |= (i2c::get_sr2() << 16U);
 
          i2c::receive_data(); //clear the txe and btf flags
-         i2c::set_event_handler(on_start3);
+         i2c::set_event_handler(on_start2_sent);
       }
 
-      static void on_start3()
+      static void on_start2_sent()
       {
          // flags sr1.sb
          recorded_flags[4] = i2c::get_sr1();
@@ -120,33 +119,15 @@ namespace{
           // flags sr2.[busy:msl] sr1.addr
           recorded_flags[5] = i2c::get_sr1();
           recorded_flags[5] |= (i2c::get_sr2() << 16U);
+
           i2c::enable_event_interrupts(false);
           i2c::set_event_handler(i2c::default_event_handler);
       }
 
-//      static void on_rx()
-//      {
-//          
-//          recorded_flags[6] = i2c::get_sr1();
-//          recorded_flags[6] |= (i2c::get_sr2() << 16U);
-//
-//          i2c::enable_event_interrupts(false);
-//
-//      }
-//
-//      static void on_rx1()
-//      {
-//
-//          recorded_flags[7] = i2c::get_sr1();
-//          recorded_flags[7] |= (i2c::get_sr2() << 16U);
-//      }
-
-      // dma handler called when last byte of dma data recieved
-      // disable dma and enable i2c event irq's to get btf
-      // update the event handler
+      // when last byte of dma data received
+      // cleanup
       static void on_dma_transfer_complete()
       {
-        
          led::on();
          i2c::enable_dma_rx_stream(false);
          i2c::enable_dma_bit(false);
