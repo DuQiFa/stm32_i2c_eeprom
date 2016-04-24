@@ -120,25 +120,26 @@ namespace{
           // flags sr2.[busy:msl] sr1.addr
           recorded_flags[5] = i2c::get_sr1();
           recorded_flags[5] |= (i2c::get_sr2() << 16U);
-          i2c::set_event_handler(on_rx);
-      }
-
-      static void on_rx()
-      {
-          
-          recorded_flags[6] = i2c::get_sr1();
-          recorded_flags[6] |= (i2c::get_sr2() << 16U);
-
           i2c::enable_event_interrupts(false);
-
+          i2c::set_event_handler(i2c::default_event_handler);
       }
 
-      static void on_rx1()
-      {
-
-          recorded_flags[7] = i2c::get_sr1();
-          recorded_flags[7] |= (i2c::get_sr2() << 16U);
-      }
+//      static void on_rx()
+//      {
+//          
+//          recorded_flags[6] = i2c::get_sr1();
+//          recorded_flags[6] |= (i2c::get_sr2() << 16U);
+//
+//          i2c::enable_event_interrupts(false);
+//
+//      }
+//
+//      static void on_rx1()
+//      {
+//
+//          recorded_flags[7] = i2c::get_sr1();
+//          recorded_flags[7] |= (i2c::get_sr2() << 16U);
+//      }
 
       // dma handler called when last byte of dma data recieved
       // disable dma and enable i2c event irq's to get btf
