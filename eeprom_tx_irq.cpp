@@ -134,7 +134,7 @@ namespace{
 /*
    test function
 */
-char data_out[] = {"WEALTHY"};  // the data to write n.b in dma available memory
+char data_out[] = {"NiceOne"};  // the data to write n.b in dma available memory
 
 bool eeprom_tx_irq_test()
 {

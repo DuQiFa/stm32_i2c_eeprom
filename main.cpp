@@ -22,11 +22,11 @@ int main()
 
 // choose function to use
 
-   //eeprom_tx_irq_test();
+   eeprom_tx_irq_test();
    // write delay
-//   auto now = quan::stm32::millis();
-//   typedef decltype(now) ms;
-//   while( (quan::stm32::millis() - now) < ms{6U}){;}
+   auto now = quan::stm32::millis();
+   typedef decltype(now) ms;
+   while( (quan::stm32::millis() - now) < ms{6U}){;}
 
     eeprom_rx_irq_test();
 

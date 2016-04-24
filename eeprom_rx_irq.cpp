@@ -65,7 +65,7 @@ namespace{
       // Clear by reading sr1 and
       // then writing dr with address of i2c device
       static void on_start_sent()
-      {  // entry sb
+      {  // flags sr1.sb
          recorded_flags[0] = i2c::get_sr1();
          i2c::send_address(m_device_address); 
          i2c::set_event_handler(on_device_address_sent);
@@ -75,19 +75,16 @@ namespace{
       // Clear by reading SR1 followed by reading SR2.
       // then send first byte of data address
       static void on_device_address_sent()
-      {  // entry txe addr
+      {  // flags sr2.[tra:busy:msl] sr1.[addr:txe]
          recorded_flags[1] = i2c::get_sr1();
          recorded_flags[1] |= (i2c::get_sr2() << 16U);
          i2c::send_data(m_data_address[0]);
          i2c::set_event_handler(on_data_address_hi_sent);
       }
 
-      // btf on first data address
-      // send second byte of data address
-      // update to next handler
       static void on_data_address_hi_sent()
-      { // on entry txe btf
-          
+      { 
+          // flags sr2.[tra:busy:msl] sr1.[btf:txe]
           recorded_flags[2] = i2c::get_sr1();
           recorded_flags[2] |= (i2c::get_sr2() << 16U);
          
@@ -100,15 +97,17 @@ namespace{
       // restar
       static void on_start2()
       {
+         // flags sr2.[tra:busy:msl] sr1.[btf:txe]
          recorded_flags[3] = i2c::get_sr1();
          recorded_flags[3] |= (i2c::get_sr2() << 16U);
 
-         i2c::receive_data(); // this is to clear the flags
+         i2c::receive_data(); //clear the txe and btf flags
          i2c::set_event_handler(on_start3);
       }
 
       static void on_start3()
       {
+         // flags sr1.sb
          recorded_flags[4] = i2c::get_sr1();
          
          i2c::send_address(m_device_address | 1);
@@ -118,6 +117,7 @@ namespace{
       // addr sent
       static void on_device_read_address_sent()
       {
+          // flags sr2.[busy:msl] sr1.addr
           recorded_flags[5] = i2c::get_sr1();
           recorded_flags[5] |= (i2c::get_sr2() << 16U);
           i2c::set_event_handler(on_rx);
@@ -125,7 +125,7 @@ namespace{
 
       static void on_rx()
       {
-          led::on();
+          
           recorded_flags[6] = i2c::get_sr1();
           recorded_flags[6] |= (i2c::get_sr2() << 16U);
 
@@ -146,7 +146,7 @@ namespace{
       static void on_dma_transfer_complete()
       {
         
-         
+         led::on();
          i2c::enable_dma_rx_stream(false);
          i2c::enable_dma_bit(false);
          i2c::enable_dma_last_bit(false);
